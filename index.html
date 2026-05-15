@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>智能文本编辑器 · 流畅光标版</title>
+    <title>智能文本编辑器 · Enter软换行</title>
     <style>
         :root { --bg: #f0f2f5; --surface: #fff; --surface-alt: #f8f9fa; --border: #e0e3e8; --text: #2c3e50; --text-secondary: #6b7280; --text-muted: #9ca3af; --primary: #4f6ef7; --primary-light: #eef1fe; --shadow: 0 1px 3px rgba(0,0,0,0.08); --radius: 10px; --radius-sm: 6px; }
         *{margin:0;padding:0;box-sizing:border-box}
@@ -147,7 +147,7 @@
     </div>
     <div class="modal-footer"><button class="btn" id="shortcutCancelBtn">取消</button><button class="btn btn-primary" id="shortcutSaveBtn">💾保存设置</button></div></div>
 </div>
-<div class="version-tag">v4.2 · 光标流畅</div>
+<div class="version-tag">v4.3 · Enter软换行</div>
 
 <script>
 (function() {
@@ -244,7 +244,7 @@
 
     function loadContent() {
         const saved = localStorage.getItem('editor-content');
-        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会根据前面的标题自动缩进。按 Enter 正常换段，缩进自动调整。</p><h2>二级标题</h2><p>这段正文在二级标题下，首行缩进4字符。</p><h3>三级标题</h3><p>这段正文在三级标题下，首行缩进6字符。</p>`;
+        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会根据前面的标题自动缩进。直接按 <strong>Enter</strong> 换行，不会产生新段落，续行不缩进。</p><h2>二级标题</h2><p>这段正文在二级标题下，首行缩进4字符。</p><h3>三级标题</h3><p>这段正文在三级标题下，首行缩进6字符。</p>`;
     }
     function saveContent() {
         updateHeadingIDs();
@@ -655,6 +655,33 @@
         document.getElementById('cancelEditBtn').onclick = resetShortcutForm;
         document.getElementById('tocToggleBtn').onclick = () => document.getElementById('sidebar').classList.toggle('open');
         document.getElementById('sidebarCloseBtn').onclick = () => document.getElementById('sidebar').classList.remove('open');
+
+        // 核心：Enter 键插入 <br>，不产生新段落，且保持光标不乱跳
+        editor.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                const sel = window.getSelection();
+                if (!sel.rangeCount) return;
+                const range = sel.getRangeAt(0);
+                const node = range.startContainer;
+                // 如果当前在非标题的块级元素内，则插入 <br>
+                let block = node.nodeType === 3 ? node.parentElement.closest('p,div,h1,h2,h3,h4,h5,h6') : node.closest('p,div,h1,h2,h3,h4,h5,h6');
+                if (block && HEADINGS.indexOf(block.tagName.toLowerCase()) === -1) {
+                    e.preventDefault();
+                    // 插入 <br> 后，光标移动到新行
+                    document.execCommand('insertHTML', false, '<br>');
+                    // 修正光标位置：在插入的 <br> 后
+                    const newRange = document.createRange();
+                    const br = block.querySelector('br:last-of-type');
+                    if (br) {
+                        newRange.setStartAfter(br);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                }
+                // 如果是标题，保持默认行为（创建同级标题）
+            }
+        });
 
         document.addEventListener('keydown', e => {
             if (e.ctrlKey && e.key==='s') { e.preventDefault(); saveContent(); }
