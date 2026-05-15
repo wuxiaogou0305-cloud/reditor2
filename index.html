@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>智能文本编辑器 · 终版稳定</title>
+    <title>智能文本编辑器 · 段落跟随缩进 · 周月统计</title>
     <style>
         :root { --bg: #f0f2f5; --surface: #fff; --surface-alt: #f8f9fa; --border: #e0e3e8; --text: #2c3e50; --text-secondary: #6b7280; --text-muted: #9ca3af; --primary: #4f6ef7; --primary-light: #eef1fe; --shadow: 0 1px 3px rgba(0,0,0,0.08); --radius: 10px; --radius-sm: 6px; }
         *{margin:0;padding:0;box-sizing:border-box}
@@ -35,32 +35,26 @@
         .editor-wrapper{flex:1;overflow-y:auto;padding:20px 24px}
         #editor{outline:none;max-width:800px;margin:0 auto;line-height:1.8;font-size:16px}
 
-        /* 标题仅首行缩进 */
-        #editor h1 { font-size:32px; font-weight:700; margin:24px 0 12px; text-indent: 0; }
-        #editor h2 { font-size:24px; font-weight:600; margin:20px 0 10px; text-indent: 2em; }
-        #editor h3 { font-size:20px; font-weight:600; margin:16px 0 8px; text-indent: 4em; }
-        #editor h4 { font-size:18px; font-weight:600; margin:14px 0 6px; text-indent: 6em; }
-        #editor h5 { font-size:16px; font-weight:600; margin:12px 0 4px; text-indent: 8em; }
-        #editor h6 { font-size:14px; font-weight:600; margin:10px 0 2px; text-indent: 10em; }
+        /* 标题缩进（保持不变） */
+        #editor h1 { font-size:32px; font-weight:700; margin:24px 0 12px; margin-left: 0; }
+        #editor h2 { font-size:24px; font-weight:600; margin:20px 0 10px; margin-left: 20px; }
+        #editor h3 { font-size:20px; font-weight:600; margin:16px 0 8px; margin-left: 40px; }
+        #editor h4 { font-size:18px; font-weight:600; margin:14px 0 6px; margin-left: 60px; }
+        #editor h5 { font-size:16px; font-weight:600; margin:12px 0 4px; margin-left: 80px; }
+        #editor h6 { font-size:14px; font-weight:600; margin:10px 0 2px; margin-left: 100px; }
 
-        /* 段落默认无缩进，只有 data-indent-level 属性才赋予首行缩进 */
-        #editor p { font-size:16px; margin:8px 0; line-height:1.8; text-indent: 0; }
-        #editor p[data-indent-level="0"] { text-indent: 2em; }
-        #editor p[data-indent-level="1"] { text-indent: 4em; }
-        #editor p[data-indent-level="2"] { text-indent: 6em; }
-        #editor p[data-indent-level="3"] { text-indent: 8em; }
-        #editor p[data-indent-level="4"] { text-indent: 10em; }
-        #editor p[data-indent-level="5"] { text-indent: 12em; }
+        /* 普通段落首行缩进两个字符，左侧缩进由JS动态设置 */
+        #editor p { font-size:16px; margin:8px 0; text-indent: 2em; line-height:1.8; }
 
-        #editor:empty::before{content:'✍️ 开始写作吧...';color:#cbd5e1; text-indent:0;}
+        #editor:empty::before{content:'✍️ 开始写作吧...';color:#cbd5e1; text-indent:0; margin-left:0;}
 
         #editor mark.yellow{background:#fef3c7} #editor mark.green{background:#d1fae5} #editor mark.pink{background:#fce7f3} #editor mark.blue{background:#dbeafe} #editor mark.orange{background:#ffedd5}
-        .status-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-top:1px solid var(--border);background:var(--surface-alt);font-size:12px;color:var(--text-muted); gap:10px; flex-wrap:wrap;}
+        .status-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-top:1px solid var(--border);background:var(--surface-alt);font-size:12px;color:var(--text-muted)}
         .save-dot{width:8px;height:8px;border-radius:50%;background:#10b981} .save-dot.saving{background:#f59e0b;animation:pulse 1s infinite}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
         .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
         .modal-overlay.visible{opacity:1;pointer-events:all}
-        .modal{background:var(--surface);border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,0.15);width:90%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+        .modal{background:var(--surface);border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,0.15);width:90%;max-width:750px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
         .modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
         .modal-close{width:34px;height:34px;border:none;background:var(--surface-alt);border-radius:50%;cursor:pointer;font-size:18px}
         .modal-body{flex:1;overflow-y:auto;padding:20px}
@@ -70,16 +64,25 @@
         .restore-confirm { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-top: 6px; display: none; }
         .restore-confirm.show { display: block; }
         .toc-toggle-btn{display:none;position:fixed;bottom:24px;right:24px;width:50px;height:50px;border-radius:50%;background:var(--primary);color:#fff;border:none;font-size:20px;z-index:90}
-        .reset-today-btn { background: none; border: none; color: var(--primary); font-size:12px; cursor:pointer; text-decoration: underline; margin-left: 4px; }
-        .stats-summary { background: var(--primary-light); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-around; }
-        .stats-summary-item { text-align: center; min-width: 60px; }
-        .stats-summary-item .label { font-size: 12px; color: var(--text-secondary); }
-        .stats-summary-item .value { font-size: 18px; font-weight: 700; color: var(--primary); }
         @media(max-width:768px){
             .sidebar{position:fixed;top:0;left:0;height:100vh;width:280px;transform:translateX(-100%);transition:.3s;z-index:95}
             .sidebar.open{transform:translateX(0)} .sidebar-close-btn{display:flex} .toc-toggle-btn{display:flex}
         }
         .version-tag {position:fixed; bottom:8px; right:8px; font-size:10px; color:var(--text-muted); opacity:0.6;}
+        
+        /* 统计表格样式 */
+        .stats-section { margin-bottom: 28px; }
+        .stats-section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; padding-left: 0; border-left: 3px solid var(--primary); padding-left: 10px; background: transparent; }
+        .stats-summary-cards { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+        .stat-card { background: var(--surface-alt); border-radius: var(--radius-sm); padding: 12px 18px; flex: 1; min-width: 120px; text-align: center; box-shadow: var(--shadow); }
+        .stat-card .stat-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+        .stat-card .stat-number { font-size: 28px; font-weight: 700; color: var(--primary); }
+        .stats-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+        .stats-table th, .stats-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+        .stats-table th { background: var(--surface-alt); font-weight: 600; color: var(--text-secondary); }
+        .stats-table tr:hover { background: var(--primary-light); }
+        .no-data { color: var(--text-muted); text-align: center; padding: 20px; font-style: italic; }
+        .badge-week { background: #e0e7ff; color: #4338ca; border-radius: 12px; padding: 2px 8px; font-size: 11px; display: inline-block; }
     </style>
 </head>
 <body>
@@ -117,25 +120,20 @@
             <div><span class="save-dot saved" id="saveDot"></span><span id="saveText">就绪</span></div>
             <div id="wordCount">字数:0</div>
             <div id="todayCount" style="cursor:pointer">今日新增:0</div>
-            <button class="reset-today-btn" id="resetTodayBtn" title="重置今日起始字数">↺ 重置</button>
         </div>
     </div>
 </div>
 <button class="toc-toggle-btn" id="tocToggleBtn">📑</button>
 
-<!-- 历史版本 -->
+<!-- 模态框：历史版本、统计、快捷用语 -->
 <div class="modal-overlay" id="historyOverlay">
     <div class="modal"><div class="modal-header"><h3>📜 历史版本</h3><button class="modal-close" id="historyCloseBtn">✕</button></div>
     <div class="modal-body" id="versionList"></div><div class="modal-footer"><button class="btn" id="historyCloseFooterBtn">关闭</button></div></div>
 </div>
-
-<!-- 每日统计 -->
 <div class="modal-overlay" id="statsOverlay">
-    <div class="modal"><div class="modal-header"><h3>📊 字数统计</h3><button class="modal-close" id="statsCloseBtn">✕</button></div>
+    <div class="modal"><div class="modal-header"><h3>📊 码字统计 · 日/周/月</h3><button class="modal-close" id="statsCloseBtn">✕</button></div>
     <div class="modal-body" id="statsContent"></div><div class="modal-footer"><button class="btn" id="statsCloseFooterBtn">关闭</button></div></div>
 </div>
-
-<!-- 快捷用语 -->
 <div class="modal-overlay" id="shortcutOverlay">
     <div class="modal"><div class="modal-header"><h3>⚙️ 快捷用语设置</h3><button class="modal-close" id="shortcutCloseBtn">✕</button></div>
     <div class="modal-body" id="shortcutBody">
@@ -147,7 +145,7 @@
     </div>
     <div class="modal-footer"><button class="btn" id="shortcutCancelBtn">取消</button><button class="btn btn-primary" id="shortcutSaveBtn">💾保存设置</button></div></div>
 </div>
-<div class="version-tag">vFinal · 段落永不意外缩进</div>
+<div class="version-tag">v3.3 · 段落跟随缩进 + 周月统计</div>
 
 <script>
 (function() {
@@ -169,7 +167,7 @@
     let todayStart = 0;
     let saveTimeout;
 
-    // 全局函数
+    // ---------- 全局函数 (历史、快捷用语、统计辅助) ----------
     window._viewVersion = function(index) {
         const v = versions[index]; if(!v) return;
         const timeStr = new Date(v.time).toLocaleString();
@@ -186,7 +184,7 @@
         const v = versions[index]; if(!v) return;
         editor.innerHTML = v.content;
         updateTOC(); updateCounts(); saveContent();
-        updateAllParagraphIndents();
+        updateParagraphIndent();
         document.getElementById('historyOverlay').classList.remove('visible');
     };
     window._hideRestoreConfirm = function(index) {
@@ -217,7 +215,173 @@
         openShortcutSettings(); renderShortcutButtons();
     };
 
-    // 初始化
+    // ========== 周月统计核心函数 ==========
+    function getLocalDateKey(date) { // date为Date对象, 返回YYYY-MM-DD
+        let y = date.getFullYear();
+        let m = String(date.getMonth() + 1).padStart(2, '0');
+        let d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    // 获取某周的周一日期 (ISO周一)
+    function getMondayDate(date) {
+        const d = new Date(date);
+        const day = d.getDay(); // 0周日
+        const diff = (day === 0 ? 6 : day - 1); // 到周一偏移
+        d.setDate(d.getDate() - diff);
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    // 格式化周区间 "M月d日 - M月d日"
+    function formatWeekRange(monday) {
+        const end = new Date(monday);
+        end.setDate(monday.getDate() + 6);
+        const startStr = `${monday.getMonth()+1}/${monday.getDate()}`;
+        const endStr = `${end.getMonth()+1}/${end.getDate()}`;
+        return `${startStr} - ${endStr}`;
+    }
+
+    // 获取当前周总字数 (基于dailyStats)
+    function getCurrentWeekTotal(stats) {
+        const today = new Date();
+        const monday = getMondayDate(today);
+        let total = 0;
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(monday);
+            day.setDate(monday.getDate() + i);
+            const key = getLocalDateKey(day);
+            if (stats[key]) total += stats[key];
+        }
+        return total;
+    }
+
+    // 获取当前月总字数
+    function getCurrentMonthTotal(stats) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        let total = 0;
+        for (const [dateStr, count] of Object.entries(stats)) {
+            const [y, m] = dateStr.split('-').map(Number);
+            if (y === year && m === month+1) {
+                total += count;
+            }
+        }
+        return total;
+    }
+
+    // 获取历史每周聚合 (返回数组: { weekKey: '2026-W20', weekRange, total, startDateISO })
+    function getWeeklyAggregate(stats) {
+        const weekMap = new Map(); // key: 'YYYY-MM-DD' 周一日期
+        for (const [dateStr, count] of Object.entries(stats)) {
+            const date = new Date(dateStr + 'T12:00:00');
+            if (isNaN(date)) continue;
+            const monday = getMondayDate(date);
+            const mondayKey = getLocalDateKey(monday);
+            if (!weekMap.has(mondayKey)) {
+                weekMap.set(mondayKey, { total: 0, mondayDate: monday });
+            }
+            weekMap.get(mondayKey).total += count;
+        }
+        const weeks = [];
+        for (const [mondayKey, data] of weekMap.entries()) {
+            weeks.push({
+                weekKey: mondayKey,
+                weekRange: formatWeekRange(data.mondayDate),
+                total: data.total,
+                startDate: data.mondayDate
+            });
+        }
+        weeks.sort((a,b) => b.startDate - a.startDate);
+        return weeks;
+    }
+
+    // 获取历史每月聚合
+    function getMonthlyAggregate(stats) {
+        const monthMap = new Map(); // key: 'YYYY-MM'
+        for (const [dateStr, count] of Object.entries(stats)) {
+            const ym = dateStr.substring(0, 7); // "2026-05"
+            if (!monthMap.has(ym)) monthMap.set(ym, 0);
+            monthMap.set(ym, monthMap.get(ym) + count);
+        }
+        const months = [];
+        for (const [ym, total] of monthMap.entries()) {
+            const [year, month] = ym.split('-');
+            const dateObj = new Date(parseInt(year), parseInt(month)-1, 1);
+            months.push({ yearMonth: ym, total, dateObj });
+        }
+        months.sort((a,b) => b.dateObj - a.dateObj);
+        return months;
+    }
+
+    // 渲染完整统计面板
+    function renderStatsModal() {
+        const statsRaw = JSON.parse(localStorage.getItem('daily-stats') || '{}');
+        const dailyStatsData = statsRaw;
+        
+        const currentWeekTotal = getCurrentWeekTotal(dailyStatsData);
+        const currentMonthTotal = getCurrentMonthTotal(dailyStatsData);
+        const weeklyHistory = getWeeklyAggregate(dailyStatsData);
+        const monthlyHistory = getMonthlyAggregate(dailyStatsData);
+        
+        // 准备日统计表格 (原有)
+        const dailyEntries = Object.entries(dailyStatsData).sort((a,b) => b[0].localeCompare(a[0]));
+        
+        let html = `
+            <div class="stats-section">
+                <div class="stats-section-title">📌 本周 & 本月 码字总量</div>
+                <div class="stats-summary-cards">
+                    <div class="stat-card"><div class="stat-label">📅 本周总字数</div><div class="stat-number">${currentWeekTotal}</div></div>
+                    <div class="stat-card"><div class="stat-label">📆 本月总字数</div><div class="stat-number">${currentMonthTotal}</div></div>
+                </div>
+            </div>
+        `;
+        
+        // 每周统计历史
+        html += `<div class="stats-section"><div class="stats-section-title">📆 每周汇总 (按周统计总字数)</div>`;
+        if (weeklyHistory.length === 0) {
+            html += `<div class="no-data">暂无周数据，继续写作吧 ✍️</div>`;
+        } else {
+            html += `<table class="stats-table"><thead><tr><th>周区间 (周一~周日)</th><th>本周总字数</th></tr></thead><tbody>`;
+            weeklyHistory.forEach(week => {
+                html += `<tr><td><span class="badge-week">📅</span> ${week.weekRange}</td><td><strong>${week.total}</strong> 字</td></tr>`;
+            });
+            html += `</tbody></table>`;
+        }
+        html += `</div>`;
+        
+        // 每月统计历史
+        html += `<div class="stats-section"><div class="stats-section-title">📆 每月汇总 (按月统计总字数)</div>`;
+        if (monthlyHistory.length === 0) {
+            html += `<div class="no-data">暂无月度数据，持续写作吧 🌙</div>`;
+        } else {
+            html += `<table class="stats-table"><thead><tr><th>月份</th><th>当月总字数</th></tr></thead><tbody>`;
+            monthlyHistory.forEach(month => {
+                const [year, mon] = month.yearMonth.split('-');
+                const display = `${year}年 ${parseInt(mon)}月`;
+                html += `<tr><td>${display}</td><td><strong>${month.total}</strong> 字</td></tr>`;
+            });
+            html += `</tbody></table>`;
+        }
+        html += `</div>`;
+        
+        // 每日新增明细 (原始)
+        html += `<div class="stats-section"><div class="stats-section-title">📋 每日新增明细</div>`;
+        if (dailyEntries.length === 0) {
+            html += `<div class="no-data">暂无每日记录</div>`;
+        } else {
+            html += `<table class="stats-table"><thead><tr><th>日期</th><th>当日新增字数</th></tr></thead><tbody>`;
+            for (const [date, count] of dailyEntries) {
+                html += `<tr><td>${date}</td><td>${count} 字</td></tr>`;
+            }
+            html += `</tbody></table>`;
+        }
+        html += `</div>`;
+        
+        document.getElementById('statsContent').innerHTML = html;
+    }
+
+    // ---------- 初始化 ----------
     function init() {
         loadContent();
         loadShortcuts();
@@ -225,16 +389,16 @@
         loadDailyStats();
         updateTOC();
         updateCounts();
-        updateAllParagraphIndents();
+        updateParagraphIndent();
         renderShortcutButtons();
         new MutationObserver(() => {
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
                 updateTOC();
                 updateCounts();
-                updateAllParagraphIndents();
+                updateParagraphIndent();
                 saveContent();
-            }, 500);
+            }, 300);
         }).observe(editor, { childList:true, subtree:true, characterData:true });
         setInterval(autoVersion, 5*60*1000);
         bindEvents();
@@ -244,7 +408,7 @@
 
     function loadContent() {
         const saved = localStorage.getItem('editor-content');
-        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会根据前面的标题自动缩进。直接按 <strong>Enter</strong> 换行，第二行绝不缩进，光标稳定。</p><h2>二级标题</h2><p>这段正文在二级标题下，首行缩进4字符。</p><h3>三级标题</h3><p>这段正文在三级标题下，首行缩进6字符。</p>`;
+        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>这段正文会自动跟随上方的标题级别进行缩进。</p><h2>二级标题</h2><p>正文缩进比二级标题更多一些。</p><h3>三级标题</h3><p>再下一层正文缩进更明显。</p>`;
     }
     function saveContent() {
         updateHeadingIDs();
@@ -257,42 +421,159 @@
         editor.querySelectorAll(HEADINGS).forEach((h,i) => h.id = 'h'+i);
     }
 
-    function getParagraphIndentLevel(p) {
-        let prev = p.previousElementSibling;
-        while (prev) {
-            if (HEADINGS.indexOf(prev.tagName.toLowerCase()) !== -1) {
-                return levelMap[prev.tagName.toLowerCase()] - 1;
-            }
-            prev = prev.previousElementSibling;
-        }
-        return 0;
-    }
-
-    function updateAllParagraphIndents() {
+    // 段落跟随缩进
+    function updateParagraphIndent() {
         const paragraphs = editor.querySelectorAll('p');
         paragraphs.forEach(p => {
-            const expectedLevel = getParagraphIndentLevel(p);
-            const currentLevel = p.getAttribute('data-indent-level');
-            if (currentLevel === null || parseInt(currentLevel) !== expectedLevel) {
-                p.setAttribute('data-indent-level', expectedLevel);
+            let prev = p.previousElementSibling;
+            let heading = null;
+            while (prev) {
+                if (HEADINGS.indexOf(prev.tagName.toLowerCase()) !== -1) {
+                    heading = prev;
+                    break;
+                }
+                prev = prev.previousElementSibling;
             }
+            let indent = 0;
+            if (heading) {
+                const level = levelMap[heading.tagName.toLowerCase()];
+                const base = (level - 1) * 20;
+                indent = base + 20;
+            }
+            p.style.marginLeft = indent + 'px';
         });
     }
 
-    // 目录折叠
-    function buildTocTree() { /* 不变 */ }
-    function renderTocTree(nodes, container, depth = 0) { /* 不变 */ }
-    function updateTOC() { /* 不变，包含折叠状态保持 */ }
-    function setupIntersectionObserver() { /* 不变 */ }
+    // 目录构建(保留折叠)
+    function buildTocTree() {
+        updateHeadingIDs();
+        const headings = editor.querySelectorAll(HEADINGS);
+        const flat = [];
+        headings.forEach(h => {
+            flat.push({
+                id: h.id,
+                text: h.textContent.trim() || '(空)',
+                level: levelMap[h.tagName.toLowerCase()],
+                el: h
+            });
+        });
+        const root = { children: [], level: 0 };
+        const stack = [root];
+        flat.forEach(item => {
+            const node = { ...item, children: [] };
+            while (stack.length && stack[stack.length-1].level >= item.level) {
+                stack.pop();
+            }
+            const parent = stack[stack.length-1] || root;
+            parent.children.push(node);
+            stack.push(node);
+        });
+        return root.children;
+    }
 
-    // 字数统计
+    function renderTocTree(nodes, container, depth = 0) {
+        nodes.forEach(node => {
+            const hasChildren = node.children && node.children.length > 0;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'toc-node';
+            const item = document.createElement('div');
+            item.className = 'toc-item';
+            item.style.paddingLeft = (depth * 20 + 8) + 'px';
+            item.setAttribute('data-heading-id', node.id);
+            const arrow = document.createElement('span');
+            arrow.className = 'toc-arrow' + (hasChildren ? '' : ' empty');
+            arrow.innerHTML = hasChildren ? '▼' : '';
+            if (hasChildren) {
+                arrow.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const childContainer = wrapper.querySelector(':scope > .toc-children');
+                    if (childContainer) {
+                        const collapsed = childContainer.classList.toggle('collapsed');
+                        arrow.classList.toggle('collapsed', collapsed);
+                    }
+                });
+            }
+            item.appendChild(arrow);
+            const badge = document.createElement('span');
+            badge.className = 'toc-badge h' + node.level;
+            badge.textContent = 'H' + node.level;
+            item.appendChild(badge);
+            const textSpan = document.createElement('span');
+            textSpan.className = 'toc-text';
+            textSpan.textContent = node.text;
+            item.appendChild(textSpan);
+            item.addEventListener('click', () => {
+                const target = document.querySelector('#' + CSS.escape(node.id));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    tocContainer.querySelectorAll('.toc-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                }
+            });
+            wrapper.appendChild(item);
+            if (hasChildren) {
+                const childContainer = document.createElement('div');
+                childContainer.className = 'toc-children';
+                renderTocTree(node.children, childContainer, depth + 1);
+                wrapper.appendChild(childContainer);
+            }
+            container.appendChild(wrapper);
+        });
+    }
+
+    function updateTOC() {
+        const collapsedIds = new Set();
+        tocContainer.querySelectorAll('.toc-children.collapsed').forEach(el => {
+            const parentNode = el.closest('.toc-node');
+            const headingItem = parentNode?.querySelector(':scope > .toc-item');
+            if (headingItem) {
+                const id = headingItem.getAttribute('data-heading-id');
+                if (id) collapsedIds.add(id);
+            }
+        });
+        tocContainer.innerHTML = '';
+        const tree = buildTocTree();
+        if (tree.length === 0) {
+            tocContainer.innerHTML = '<div class="toc-empty">📝 暂无标题</div>';
+            return;
+        }
+        renderTocTree(tree, tocContainer);
+        tocContainer.querySelectorAll('.toc-node').forEach(node => {
+            const headingItem = node.querySelector(':scope > .toc-item');
+            if (headingItem) {
+                const id = headingItem.getAttribute('data-heading-id');
+                if (id && collapsedIds.has(id)) {
+                    const childContainer = node.querySelector(':scope > .toc-children');
+                    const arrow = headingItem.querySelector('.toc-arrow');
+                    if (childContainer) {
+                        childContainer.classList.add('collapsed');
+                        if (arrow) arrow.classList.add('collapsed');
+                    }
+                }
+            }
+        });
+        setupIntersectionObserver();
+    }
+
+    function setupIntersectionObserver() {
+        if (window._headingObserver) window._headingObserver.disconnect();
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                const id = entry.target.id;
+                const item = tocContainer.querySelector(`[data-heading-id="${CSS.escape(id)}"]`);
+                if (item && entry.isIntersecting && entry.intersectionRatio >= 0.3) {
+                    tocContainer.querySelectorAll('.toc-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                }
+            });
+        }, { root: document.getElementById('editorWrapper'), threshold: [0.3, 0.6], rootMargin: '-20px 0px -60px 0px' });
+        editor.querySelectorAll(HEADINGS).forEach(h => observer.observe(h));
+        window._headingObserver = observer;
+    }
+
     function updateCounts() {
         const total = (editor.textContent||'').replace(/\s/g,'').length;
         wordCountEl.textContent = '字数: '+total;
-        if (total === 0 && todayStart > 0) {
-            todayStart = 0;
-            localStorage.setItem('today-start', todayStart);
-        }
         const today = getToday();
         const added = Math.max(0, total - todayStart);
         dailyStats[today] = added;
@@ -303,16 +584,25 @@
     function getToday() {
         const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     }
-    function loadDailyStats() { /* 不变 */ }
-    function resetTodayStart() { /* 不变 */ }
 
-    // 统计面板（本周/上周/本月/上月）
-    function getWeekDates() { /* 不变 */ }
-    function getMonthDates() { /* 不变 */ }
-    function openStatsPanel() { /* 不变 */ }
+    function loadDailyStats() {
+        try {
+            dailyStats = JSON.parse(localStorage.getItem('daily-stats')) || {};
+            const savedDate = localStorage.getItem('today-date');
+            const today = getToday();
+            if (savedDate !== today) {
+                todayStart = (editor.textContent||'').replace(/\s/g,'').length;
+                localStorage.setItem('today-start', todayStart);
+                localStorage.setItem('today-date', today);
+            } else {
+                todayStart = parseInt(localStorage.getItem('today-start')) || 0;
+            }
+        } catch(e) { todayStart = 0; }
+    }
 
-    // 其他功能
-    function loadVersions() { /* 不变 */ }
+    function loadVersions() {
+        try { versions = JSON.parse(localStorage.getItem('versions')) || []; } catch(e) { versions = []; }
+    }
     function autoVersion() { addVersion(false); }
     function addVersion(manual) {
         const html = editor.innerHTML;
@@ -322,19 +612,68 @@
         localStorage.setItem('versions', JSON.stringify(versions));
         if (manual) alert('版本已手动保存');
     }
-    function renderVersionList() { /* 不变 */ }
-    function loadShortcuts() { /* 不变 */ }
-    function defaultShortcuts() { return [{name:'问候语',text:'您好！'},{name:'感谢语',text:'感谢！'},{name:'结束语',text:'此致\n敬礼'}]; }
-    function renderShortcutButtons() { /* 不变 */ }
-    function openShortcutSettings() { /* 不变 */ }
-    function resetShortcutForm() { /* 不变 */ }
+    function renderVersionList() {
+        const container = document.getElementById('versionList');
+        if (!versions.length) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-muted)">暂无版本</p>';
+            return;
+        }
+        container.innerHTML = versions.map((v, i) => `
+            <div class="version-item">
+                <div style="font-size:12px;color:var(--text-muted)">${new Date(v.time).toLocaleString()} ${v.manual?'(手动)':'(自动)'}</div>
+                <div style="font-size:13px;margin:4px 0">${v.content.replace(/<[^>]+>/g,'').slice(0,80)}...</div>
+                <div class="version-actions">
+                    <button class="btn btn-sm" onclick="window._viewVersion(${i})">🔍查看</button>
+                    <button class="btn btn-sm" onclick="window._restoreVersion(${i})">↩️恢复</button>
+                    <button class="btn btn-sm btn-danger" onclick="window._deleteVersion(${i})">🗑删除</button>
+                </div>
+                <div class="restore-confirm" id="restore-confirm-${i}">
+                    <span style="font-size:13px;">确定恢复此版本？</span>
+                    <button class="btn btn-sm btn-primary" onclick="window._executeRestore(${i})">✅ 确定恢复</button>
+                    <button class="btn btn-sm" onclick="window._hideRestoreConfirm(${i})">取消</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function loadShortcuts() {
+        try { shortcuts = JSON.parse(localStorage.getItem('shortcuts')) || defaultShortcuts(); } catch(e) { shortcuts = defaultShortcuts(); }
+    }
+    function defaultShortcuts() {
+        return [{name:'问候语',text:'您好！'},{name:'感谢语',text:'感谢！'},{name:'结束语',text:'此致\n敬礼'}];
+    }
+    function renderShortcutButtons() {
+        shortcutButtons.innerHTML = shortcuts.map(s =>
+            `<button class="btn btn-sm" onclick="window._insertShortcut('${s.text.replace(/'/g,"\\'")}')">💬 ${s.name}</button>`
+        ).join('');
+    }
+    function openShortcutSettings() {
+        const list = document.getElementById('shortcutList');
+        list.innerHTML = shortcuts.map((s,i) => `
+            <div style="display:flex;justify-content:space-between;padding:6px 0">
+                <span><b>${s.name}</b> : ${s.text}</span>
+                <span>
+                    <button class="btn btn-sm" onclick="window._editShortcut(${i})">✏️</button>
+                    <button class="btn btn-sm btn-danger" onclick="window._deleteShortcut(${i})">🗑</button>
+                </span>
+            </div>`).join('');
+        document.getElementById('shortcutOverlay').classList.add('visible');
+    }
+    function resetShortcutForm() {
+        document.getElementById('shortcutName').value = '';
+        document.getElementById('shortcutText').value = '';
+        document.getElementById('editingIndex').value = '-1';
+        document.getElementById('addShortcutBtn').style.display = 'inline-block';
+        document.getElementById('updateShortcutBtn').style.display = 'none';
+        document.getElementById('cancelEditBtn').style.display = 'none';
+    }
 
     function bindEvents() {
         document.querySelectorAll('[data-format]').forEach(b => b.onclick = () => {
             const f = b.dataset.format;
             document.execCommand('formatBlock', false, f==='p'?'p':'<'+f.toUpperCase()+'>');
             updateTOC();
-            updateAllParagraphIndents();
+            updateParagraphIndent();
         });
         document.querySelectorAll('[data-highlight]').forEach(b => b.onclick = () => {
             const map = {yellow:'#fef3c7',green:'#d1fae5',pink:'#fce7f3',blue:'#dbeafe',orange:'#ffedd5'};
@@ -344,43 +683,56 @@
         document.getElementById('selectAllBtn').onclick = () => document.execCommand('selectAll');
         document.getElementById('saveVersionBtn').onclick = () => addVersion(true);
         document.getElementById('historyBtn').onclick = () => { renderVersionList(); document.getElementById('historyOverlay').classList.add('visible'); };
-        document.getElementById('statsBtn').onclick = openStatsPanel;
-        document.getElementById('todayCount').onclick = openStatsPanel;
+        
+        // 重写统计按钮: 每次点击刷新周月统计并展示
+        document.getElementById('statsBtn').onclick = () => {
+            renderStatsModal();
+            document.getElementById('statsOverlay').classList.add('visible');
+        };
+        
+        document.getElementById('todayCount').onclick = () => document.getElementById('statsBtn').click();
         document.getElementById('settingsBtn').onclick = openShortcutSettings;
-        document.getElementById('resetTodayBtn').addEventListener('click', () => {
-            if (confirm('确定要将今日起始字数重置为当前字数吗？')) resetTodayStart();
-        });
-
-        // 关闭按钮事件省略，请直接复制完整版
-
-        // ─── 核心：Enter 键处理，保证段落内部换行不产生新段落 ───
-        editor.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                const sel = window.getSelection();
-                if (!sel.rangeCount) return;
-                const range = sel.getRangeAt(0);
-                let container = range.startContainer;
-                // 如果光标在文本节点中，取其父元素
-                if (container.nodeType === 3) container = container.parentElement;
-                // 判断是否处于标题元素中
-                if (container && HEADINGS.indexOf(container.tagName.toLowerCase()) !== -1) {
-                    return; // 标题中按 Enter，允许默认行为（创建同级标题）
-                }
-                // 否则是普通段落，阻止默认行为，插入 <br>
-                e.preventDefault();
-                document.execCommand('insertHTML', false, '<br>');
-                // 光标定位到新行
-                const newRange = document.createRange();
-                const lastBr = container.querySelector('br:last-of-type');
-                if (lastBr) {
-                    newRange.setStartAfter(lastBr);
-                    newRange.collapse(true);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                }
+        document.getElementById('historyCloseBtn').onclick = () => document.getElementById('historyOverlay').classList.remove('visible');
+        document.getElementById('historyCloseFooterBtn').onclick = () => document.getElementById('historyOverlay').classList.remove('visible');
+        document.getElementById('historyOverlay').onclick = e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('visible'); };
+        document.getElementById('statsCloseBtn').onclick = () => document.getElementById('statsOverlay').classList.remove('visible');
+        document.getElementById('statsCloseFooterBtn').onclick = () => document.getElementById('statsOverlay').classList.remove('visible');
+        document.getElementById('statsOverlay').onclick = e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('visible'); };
+        document.getElementById('shortcutCloseBtn').onclick = () => document.getElementById('shortcutOverlay').classList.remove('visible');
+        document.getElementById('shortcutCancelBtn').onclick = () => document.getElementById('shortcutOverlay').classList.remove('visible');
+        document.getElementById('shortcutSaveBtn').onclick = () => {
+            const name = document.getElementById('shortcutName').value.trim();
+            const text = document.getElementById('shortcutText').value;
+            const idx = parseInt(document.getElementById('editingIndex').value);
+            if (!name || !text) return alert('填写完整');
+            if (idx >= 0) shortcuts[idx] = {name,text};
+            else shortcuts.push({name,text});
+            localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
+            renderShortcutButtons();
+            document.getElementById('shortcutOverlay').classList.remove('visible');
+            resetShortcutForm();
+        };
+        document.getElementById('addShortcutBtn').onclick = () => {
+            const name = document.getElementById('shortcutName').value.trim();
+            const text = document.getElementById('shortcutText').value;
+            if (!name || !text) return alert('填写完整');
+            shortcuts.push({name,text});
+            localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
+            renderShortcutButtons(); openShortcutSettings(); resetShortcutForm();
+        };
+        document.getElementById('updateShortcutBtn').onclick = () => {
+            const idx = parseInt(document.getElementById('editingIndex').value);
+            const name = document.getElementById('shortcutName').value.trim();
+            const text = document.getElementById('shortcutText').value;
+            if (idx>=0 && name && text) {
+                shortcuts[idx] = {name,text};
+                localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
+                renderShortcutButtons(); openShortcutSettings(); resetShortcutForm();
             }
-        });
-
+        };
+        document.getElementById('cancelEditBtn').onclick = resetShortcutForm;
+        document.getElementById('tocToggleBtn').onclick = () => document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('sidebarCloseBtn').onclick = () => document.getElementById('sidebar').classList.remove('open');
         document.addEventListener('keydown', e => {
             if (e.ctrlKey && e.key==='s') { e.preventDefault(); saveContent(); }
         });
