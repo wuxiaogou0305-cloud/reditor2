@@ -35,18 +35,18 @@
         .editor-wrapper{flex:1;overflow-y:auto;padding:20px 24px}
         #editor{outline:none;max-width:800px;margin:0 auto;line-height:1.8;font-size:16px}
 
-        /* 标题分级缩进（保持不变） */
-        #editor h1 { font-size:32px; font-weight:700; margin:24px 0 12px; margin-left: 0; }
-        #editor h2 { font-size:24px; font-weight:600; margin:20px 0 10px; margin-left: 20px; }
-        #editor h3 { font-size:20px; font-weight:600; margin:16px 0 8px; margin-left: 40px; }
-        #editor h4 { font-size:18px; font-weight:600; margin:14px 0 6px; margin-left: 60px; }
-        #editor h5 { font-size:16px; font-weight:600; margin:12px 0 4px; margin-left: 80px; }
-        #editor h6 { font-size:14px; font-weight:600; margin:10px 0 2px; margin-left: 100px; }
+        /* 标题：仅首行缩进，缩进量随级别递增 */
+        #editor h1 { font-size:32px; font-weight:700; margin:24px 0 12px; text-indent: 0; }
+        #editor h2 { font-size:24px; font-weight:600; margin:20px 0 10px; text-indent: 2em; }
+        #editor h3 { font-size:20px; font-weight:600; margin:16px 0 8px; text-indent: 4em; }
+        #editor h4 { font-size:18px; font-weight:600; margin:14px 0 6px; text-indent: 6em; }
+        #editor h5 { font-size:16px; font-weight:600; margin:12px 0 4px; text-indent: 8em; }
+        #editor h6 { font-size:14px; font-weight:600; margin:10px 0 2px; text-indent: 10em; }
 
-        /* 段落样式：仅保留首行缩进，不跟随标题左缩进 */
-        #editor p { font-size:16px; margin:8px 0; text-indent: 2em; line-height:1.8; margin-left: 0 !important; }
+        /* 段落：仅首行缩进，具体缩进量由JS动态设置，默认2em */
+        #editor p { font-size:16px; margin:8px 0; line-height:1.8; text-indent: 2em; }
 
-        #editor:empty::before{content:'✍️ 开始写作吧...';color:#cbd5e1; text-indent:0; margin-left:0;}
+        #editor:empty::before{content:'✍️ 开始写作吧...';color:#cbd5e1; text-indent:0;}
 
         #editor mark.yellow{background:#fef3c7} #editor mark.green{background:#d1fae5} #editor mark.pink{background:#fce7f3} #editor mark.blue{background:#dbeafe} #editor mark.orange{background:#ffedd5}
         .status-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-top:1px solid var(--border);background:var(--surface-alt);font-size:12px;color:var(--text-muted); gap:10px; flex-wrap:wrap;}
@@ -133,7 +133,7 @@
     </div>
     <div class="modal-footer"><button class="btn" id="shortcutCancelBtn">取消</button><button class="btn btn-primary" id="shortcutSaveBtn">💾保存设置</button></div></div>
 </div>
-<div class="version-tag">v3.5 · 仅首行缩进</div>
+<div class="version-tag">v3.6 · 首行缩进跟随</div>
 
 <script>
 (function() {
@@ -148,6 +148,8 @@
     const shortcutButtons = document.getElementById('shortcutButtons');
     const HEADINGS = 'h1,h2,h3,h4,h5,h6';
     const levelMap = { h1:1, h2:2, h3:3, h4:4, h5:5, h6:6 };
+    // 标题缩进基础值（单位：em）
+    const titleIndentMap = { h1:0, h2:2, h3:4, h4:6, h5:8, h6:10 };
 
     let shortcuts = [];
     let versions = [];
@@ -172,6 +174,7 @@
         const v = versions[index]; if(!v) return;
         editor.innerHTML = v.content;
         updateTOC(); updateCounts(); saveContent();
+        updateParagraphIndent(); // 恢复后立即调整缩进
         document.getElementById('historyOverlay').classList.remove('visible');
     };
     window._hideRestoreConfirm = function(index) {
@@ -210,12 +213,14 @@
         loadDailyStats();
         updateTOC();
         updateCounts();
+        updateParagraphIndent(); // 初始调整段落缩进
         renderShortcutButtons();
         new MutationObserver(() => {
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
                 updateTOC();
                 updateCounts();
+                updateParagraphIndent(); // 内容变化时重新计算缩进
                 saveContent();
             }, 300);
         }).observe(editor, { childList:true, subtree:true, characterData:true });
@@ -227,7 +232,7 @@
 
     function loadContent() {
         const saved = localStorage.getItem('editor-content');
-        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会自动缩进两个字符，标题的分级缩进也一目了然。</p><h2>二级标题</h2><p>正文只缩进首行，不再整体缩进。</p><h3>三级标题</h3><p>每段首行空两格，符合中文书写习惯。</p>`;
+        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会根据前面的标题自动增加缩进。</p><h2>二级标题</h2><p>二级标题下的段落首行缩进比二级标题多2字符。</p><h3>三级标题</h3><p>三级标题下的段落首行缩进更多。</p>`;
     }
     function saveContent() {
         updateHeadingIDs();
@@ -238,6 +243,31 @@
     }
     function updateHeadingIDs() {
         editor.querySelectorAll(HEADINGS).forEach((h,i) => h.id = 'h'+i);
+    }
+
+    // ---------- 段落首行缩进跟随标题 ----------
+    function updateParagraphIndent() {
+        const paragraphs = editor.querySelectorAll('p');
+        paragraphs.forEach(p => {
+            let prev = p.previousElementSibling;
+            let heading = null;
+            // 查找前面最近的标题
+            while (prev) {
+                if (HEADINGS.indexOf(prev.tagName.toLowerCase()) !== -1) {
+                    heading = prev;
+                    break;
+                }
+                prev = prev.previousElementSibling;
+            }
+            let indent = 2; // 默认 2em
+            if (heading) {
+                const level = levelMap[heading.tagName.toLowerCase()];
+                // 段落缩进 = 标题缩进 + 2em
+                const titleIndent = (level - 1) * 2; // 与CSS保持一致
+                indent = titleIndent + 2;
+            }
+            p.style.textIndent = indent + 'em';
+        });
     }
 
     // ---------- 折叠目录核心（保持手动折叠状态） ----------
@@ -371,7 +401,6 @@
         const total = (editor.textContent||'').replace(/\s/g,'').length;
         wordCountEl.textContent = '字数: '+total;
 
-        // 智能重置：内容被完全清空时，自动归零今日起始字数
         if (total === 0 && todayStart > 0) {
             todayStart = 0;
             localStorage.setItem('today-start', todayStart);
@@ -482,6 +511,7 @@
             const f = b.dataset.format;
             document.execCommand('formatBlock', false, f==='p'?'p':'<'+f.toUpperCase()+'>');
             updateTOC();
+            updateParagraphIndent(); // 格式变化后更新缩进
         });
         document.querySelectorAll('[data-highlight]').forEach(b => b.onclick = () => {
             const map = {yellow:'#fef3c7',green:'#d1fae5',pink:'#fce7f3',blue:'#dbeafe',orange:'#ffedd5'};
