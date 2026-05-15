@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>智能文本编辑器 · 四周统计</title>
+    <title>智能文本编辑器 · 最终稳定版</title>
     <style>
         :root { --bg: #f0f2f5; --surface: #fff; --surface-alt: #f8f9fa; --border: #e0e3e8; --text: #2c3e50; --text-secondary: #6b7280; --text-muted: #9ca3af; --primary: #4f6ef7; --primary-light: #eef1fe; --shadow: 0 1px 3px rgba(0,0,0,0.08); --radius: 10px; --radius-sm: 6px; }
         *{margin:0;padding:0;box-sizing:border-box}
@@ -35,6 +35,7 @@
         .editor-wrapper{flex:1;overflow-y:auto;padding:20px 24px}
         #editor{outline:none;max-width:800px;margin:0 auto;line-height:1.8;font-size:16px}
 
+        /* 标题缩进（仅首行） */
         #editor h1 { font-size:32px; font-weight:700; margin:24px 0 12px; text-indent: 0; }
         #editor h2 { font-size:24px; font-weight:600; margin:20px 0 10px; text-indent: 2em; }
         #editor h3 { font-size:20px; font-weight:600; margin:16px 0 8px; text-indent: 4em; }
@@ -42,7 +43,8 @@
         #editor h5 { font-size:16px; font-weight:600; margin:12px 0 4px; text-indent: 8em; }
         #editor h6 { font-size:14px; font-weight:600; margin:10px 0 2px; text-indent: 10em; }
 
-        #editor p { font-size:16px; margin:8px 0; line-height:1.8; }
+        /* 段落默认无缩进，仅当有 data-indent-level 时才缩进 */
+        #editor p { font-size:16px; margin:8px 0; line-height:1.8; text-indent: 0; }
         #editor p[data-indent-level="0"] { text-indent: 2em; }
         #editor p[data-indent-level="1"] { text-indent: 4em; }
         #editor p[data-indent-level="2"] { text-indent: 6em; }
@@ -145,7 +147,7 @@
     </div>
     <div class="modal-footer"><button class="btn" id="shortcutCancelBtn">取消</button><button class="btn btn-primary" id="shortcutSaveBtn">💾保存设置</button></div></div>
 </div>
-<div class="version-tag">v4.0 · 四周统计</div>
+<div class="version-tag">v4.1 · 换行不缩进</div>
 
 <script>
 (function() {
@@ -232,7 +234,7 @@
                 updateCounts();
                 updateAllParagraphIndents();
                 saveContent();
-            }, 300);
+            }, 500); // 延迟500ms，避免频繁写入
         }).observe(editor, { childList:true, subtree:true, characterData:true });
         setInterval(autoVersion, 5*60*1000);
         bindEvents();
@@ -242,11 +244,14 @@
 
     function loadContent() {
         const saved = localStorage.getItem('editor-content');
-        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会根据前面的标题自动缩进。</p><h2>二级标题</h2><p>二级标题下的段落缩进4字符。</p><h3>三级标题</h3><p>三级标题下的段落缩进6字符。</p>`;
+        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会根据前面的标题自动缩进。按 <strong>Shift+Enter</strong> 可以在段落内换行（不缩进）。</p><h2>二级标题</h2><p>这段正文在二级标题下，首行缩进4字符。</p><h3>三级标题</h3><p>这段正文在三级标题下，首行缩进6字符。</p>`;
     }
     function saveContent() {
         updateHeadingIDs();
-        localStorage.setItem('editor-content', editor.innerHTML);
+        // 清理脏数据：移除所有的 &nbsp;
+        const html = editor.innerHTML.replace(/&nbsp;/g, ' ');
+        editor.innerHTML = html;
+        localStorage.setItem('editor-content', html);
         const t = new Date().toLocaleTimeString();
         saveDot.className = 'save-dot saved'; saveText.textContent = '已保存 '+t;
         setTimeout(() => { if (saveDot.classList.contains('saved')) saveText.textContent = '已保存'; }, 2000);
@@ -270,7 +275,7 @@
         const paragraphs = editor.querySelectorAll('p');
         paragraphs.forEach(p => {
             const expectedLevel = getParagraphIndentLevel(p);
-            const currentLevel = parseInt(p.getAttribute('data-indent-level')) || 0;
+            const currentLevel = parseInt(p.getAttribute('data-indent-level')) || -1;
             if (currentLevel !== expectedLevel) {
                 p.setAttribute('data-indent-level', expectedLevel);
             }
@@ -472,12 +477,9 @@
     function openStatsPanel() {
         const stats = JSON.parse(localStorage.getItem('daily-stats')) || {};
 
-        // 本周
         const weekDates = getWeekDates();
-        let weekTotal = 0;
-        weekDates.forEach(d => { if (stats[d]) weekTotal += stats[d]; });
+        let weekTotal = 0; weekDates.forEach(d => { if (stats[d]) weekTotal += stats[d]; });
 
-        // 上周
         const now = new Date();
         const today = now.getDay();
         const lastMonday = new Date(now);
@@ -490,12 +492,9 @@
             if (stats[ds]) lastWeekTotal += stats[ds];
         }
 
-        // 本月
         const monthDates = getMonthDates();
-        let monthTotal = 0;
-        monthDates.forEach(d => { if (stats[d]) monthTotal += stats[d]; });
+        let monthTotal = 0; monthDates.forEach(d => { if (stats[d]) monthTotal += stats[d]; });
 
-        // 上月
         const now2 = new Date();
         const thisYear = now2.getFullYear();
         const thisMonth = now2.getMonth() + 1;
@@ -659,6 +658,26 @@
         document.getElementById('cancelEditBtn').onclick = resetShortcutForm;
         document.getElementById('tocToggleBtn').onclick = () => document.getElementById('sidebar').classList.toggle('open');
         document.getElementById('sidebarCloseBtn').onclick = () => document.getElementById('sidebar').classList.remove('open');
+
+        // ---------- 核心：重写 Enter 键行为，防止意外缩进 ----------
+        editor.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const sel = window.getSelection();
+                if (!sel.rangeCount) return;
+                const node = sel.anchorNode;
+                // 如果当前在段落或标题中，且不是标题元素，则插入 <br> 而不是创建新段落
+                let block = node.nodeType === 3 ? node.parentElement.closest('p,div,h1,h2,h3,h4,h5,h6') : node.closest('p,div,h1,h2,h3,h4,h5,h6');
+                if (block && HEADINGS.indexOf(block.tagName.toLowerCase()) === -1) {
+                    // 普通段落或 div：使用软换行
+                    e.preventDefault();
+                    document.execCommand('insertHTML', false, '<br>');
+                    // 确保插入后光标移动
+                    return;
+                }
+                // 如果是标题，允许默认行为（创建同级标题），但也会自动缩进，无需干预
+            }
+        });
+
         document.addEventListener('keydown', e => {
             if (e.ctrlKey && e.key==='s') { e.preventDefault(); saveContent(); }
         });
