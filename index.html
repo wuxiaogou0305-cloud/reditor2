@@ -3,826 +3,556 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>智能文本编辑器 · 历史版本 & 每日字数</title>
+    <title>智能文本编辑器 · 仅首行缩进</title>
     <style>
-        :root {
-            --bg: #f0f2f5; --surface: #ffffff; --surface-alt: #f8f9fa;
-            --border: #e0e3e8; --text: #2c3e50; --text-secondary: #6b7280;
-            --text-muted: #9ca3af; --primary: #4f6ef7; --primary-hover: #3b54db;
-            --primary-light: #eef1fe; --shadow: 0 1px 3px rgba(0,0,0,0.08);
-            --shadow-md: 0 4px 6px rgba(0,0,0,0.07); --radius: 10px;
-            --radius-sm: 6px; --transition: 0.2s ease;
-            --accent-yellow: #fef3c7; --accent-green: #d1fae5;
-            --accent-pink: #fce7f3; --accent-blue: #dbeafe; --accent-orange: #ffedd5;
-        }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); height:100vh; overflow:hidden; }
-        .app-container { display:flex; height:100vh; max-width:1400px; margin:0 auto; padding:12px; gap:12px; }
-        .sidebar { width:260px; min-width:260px; background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; z-index:20; }
-        .sidebar-header { padding:16px 18px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-        .sidebar-header h2 { font-size:15px; font-weight:600; display:flex; align-items:center; gap:8px; }
-        .sidebar-close-btn { display:none; width:32px; height:32px; border:none; background:var(--surface-alt); border-radius:50%; cursor:pointer; font-size:16px; color:var(--text-secondary); }
-        .toc-container { flex:1; overflow-y:auto; padding:10px 14px 14px; }
-        .toc-container::-webkit-scrollbar { width:4px; }
-        .toc-container::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:10px; }
+        :root { --bg: #f0f2f5; --surface: #fff; --surface-alt: #f8f9fa; --border: #e0e3e8; --text: #2c3e50; --text-secondary: #6b7280; --text-muted: #9ca3af; --primary: #4f6ef7; --primary-light: #eef1fe; --shadow: 0 1px 3px rgba(0,0,0,0.08); --radius: 10px; --radius-sm: 6px; }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+        .app-container{display:flex;height:100vh;max-width:1400px;margin:0 auto;padding:12px;gap:12px}
+        .sidebar{width:260px;background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;z-index:20}
+        .sidebar-header{padding:16px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+        .sidebar-close-btn{display:none;width:32px;height:32px;border:none;background:var(--surface-alt);border-radius:50%;cursor:pointer;font-size:16px}
+        .toc-container{flex:1;overflow-y:auto;padding:10px 4px 10px 8px}
         .toc-empty { color: var(--text-muted); font-size:13px; text-align:center; padding:30px 16px; }
-        .toc-item { display:block; width:100%; text-align:left; border:none; background:transparent; padding:8px 12px; margin:2px 0; border-radius:var(--radius-sm); cursor:pointer; font-size:13px; color:var(--text-secondary); border-left:3px solid transparent; }
-        .toc-item:hover { background:var(--surface-alt); color:var(--text); border-left-color:#d1d5db; }
-        .toc-item.active { background:var(--primary-light); color:var(--primary); font-weight:600; border-left-color:var(--primary); }
-        .toc-item.level-h1 { font-weight:600; font-size:14px; padding-left:12px; }
-        .toc-item.level-h2 { padding-left:24px; font-size:13px; }
-        .toc-item.level-h3 { padding-left:36px; font-size:12px; font-weight:400; }
-        .toc-item.level-h4 { padding-left:48px; font-size:11px; }
-        .toc-item.level-h5 { padding-left:60px; font-size:11px; }
-        .toc-item.level-h6 { padding-left:72px; font-size:10px; }
-        .toc-badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 6px; border-radius:3px; margin-right:6px; opacity:0.7; }
-        .toc-badge.h1 { background:#e0e7ff; color:#4338ca; } .toc-badge.h2 { background:#e0f2fe; color:#0369a1; }
-        .toc-badge.h3 { background:#f3e8ff; color:#7c3aed; } .toc-badge.h4 { background:#fce7f3; color:#9d174d; }
-        .toc-badge.h5 { background:#ffedd5; color:#9a3412; } .toc-badge.h6 { background:#d1fae5; color:#065f46; }
-        .main-area { flex:1; display:flex; flex-direction:column; background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; min-width:0; }
-        .toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:10px 14px; border-bottom:1px solid var(--border); background:var(--surface-alt); flex-shrink:0; }
-        .toolbar-divider { width:1px; height:22px; background:var(--border); margin:0 6px; flex-shrink:0; }
-        .toolbar-group { display:flex; gap:4px; align-items:center; }
-        .toolbar-spacer { flex:1; }
-        .btn { display:inline-flex; align-items:center; gap:5px; padding:7px 12px; border:1px solid transparent; border-radius:var(--radius-sm); cursor:pointer; font-size:13px; font-weight:500; transition:var(--transition); white-space:nowrap; background:#fff; border-color:var(--border); color:var(--text); user-select:none; }
-        .btn:hover { background:#f3f4f6; } .btn:active { transform:scale(0.97); }
-        .btn-sm { padding:5px 9px; font-size:12px; } .btn-xs { padding:4px 7px; font-size:11px; }
-        .btn-primary { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; }
-        .btn-active { background:var(--primary-light)!important; color:var(--primary)!important; border-color:var(--primary)!important; }
-        .btn-highlight-yellow { background:#fef9c3; border-color:#fde68a; color:#854d0e; }
-        .btn-highlight-green { background:#d1fae5; border-color:#a7f3d0; color:#065f46; }
-        .btn-highlight-pink { background:#fce7f3; border-color:#fbcfe8; color:#9d174d; }
-        .btn-highlight-blue { background:#dbeafe; border-color:#bfdbfe; color:#1e40af; }
-        .btn-highlight-orange { background:#ffedd5; border-color:#fed7aa; color:#9a3412; }
-        .btn-danger { background:#fef2f2; border-color:#fecaca; color:#dc2626; }
-        .btn-settings, .btn-history, .btn-stats { background:#fff; border-color:var(--border); font-size:16px; padding:7px 10px; border-radius:50%; width:36px; height:36px; }
-        .editor-wrapper { flex:1; overflow-y:auto; padding:20px 24px 40px; }
-        .editor-wrapper::-webkit-scrollbar { width:6px; }
-        .editor-wrapper::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:10px; }
-        #editor { outline:none; min-height:100%; max-width:800px; margin:0 auto; line-height:1.8; font-size:16px; color:var(--text); word-break:break-word; }
-        #editor:empty::before { content:'✍️ 开始写作吧...'; color:#cbd5e1; pointer-events:none; }
-        #editor h1 { font-size:32px; font-weight:700; margin:24px 0 12px; line-height:1.3; color:#0f172a; scroll-margin-top:20px; }
-        #editor h2 { font-size:24px; font-weight:600; margin:20px 0 10px; line-height:1.4; color:#1e293b; scroll-margin-top:20px; }
-        #editor h3 { font-size:20px; font-weight:600; margin:16px 0 8px; line-height:1.5; color:#334155; scroll-margin-top:20px; }
-        #editor h4 { font-size:18px; font-weight:600; margin:14px 0 6px; line-height:1.5; color:#475569; scroll-margin-top:20px; }
-        #editor h5 { font-size:16px; font-weight:600; margin:12px 0 4px; line-height:1.6; color:#64748b; scroll-margin-top:20px; }
-        #editor h6 { font-size:14px; font-weight:600; margin:10px 0 2px; line-height:1.6; color:#94a3b8; text-transform:uppercase; letter-spacing:0.02em; scroll-margin-top:20px; }
-        #editor p { margin:8px 0; font-size:16px; color:#374151; line-height:1.8; }
-        #editor mark.yellow { background:#fef3c7; } #editor mark.green { background:#d1fae5; }
-        #editor mark.pink { background:#fce7f3; } #editor mark.blue { background:#dbeafe; }
-        #editor mark.orange { background:#ffedd5; }
-        .status-bar { display:flex; align-items:center; justify-content:space-between; padding:8px 16px; border-top:1px solid var(--border); background:var(--surface-alt); font-size:12px; color:var(--text-muted); flex-shrink:0; gap:12px; flex-wrap:wrap; }
-        .save-dot { width:8px; height:8px; border-radius:50%; background:#10b981; }
-        .save-dot.saving { background:#f59e0b; animation:pulse 1s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        .modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity var(--transition); backdrop-filter:blur(2px); }
-        .modal-overlay.visible { opacity:1; pointer-events:all; }
-        .modal { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow-md); width:90%; max-width:600px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden; }
-        .modal-header { padding:18px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-        .modal-header h3 { font-size:17px; font-weight:600; }
-        .modal-close { width:34px; height:34px; border:none; background:var(--surface-alt); border-radius:50%; cursor:pointer; font-size:18px; color:var(--text-secondary); display:flex; align-items:center; justify-content:center; }
-        .modal-body { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; }
-        .modal-footer { padding:14px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
-        .shortcut-list, .version-list { display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto; }
-        .shortcut-item, .version-item { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--surface-alt); border-radius:var(--radius-sm); }
-        .version-item { flex-direction: column; align-items: flex-start; gap:4px; }
-        .version-item .version-time { font-size:12px; color:var(--text-muted); }
-        .version-item .version-preview { font-size:12px; color:var(--text-secondary); max-height:40px; overflow:hidden; }
-        .version-actions { display:flex; gap:4px; margin-top:4px; }
-        .shortcut-info { flex:1; min-width:0; }
-        .shortcut-name { font-weight:600; font-size:14px; color:var(--text); }
-        .shortcut-preview { font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:300px; }
-        .form-group { display:flex; flex-direction:column; gap:4px; }
-        .form-group label { font-weight:600; font-size:13px; }
-        .form-group input, .form-group textarea { padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:14px; font-family:inherit; background:#fff; color:var(--text); }
-        .form-group textarea { min-height:70px; max-height:150px; resize:vertical; }
-        .toc-toggle-btn { display:none; position:fixed; bottom:24px; right:24px; width:50px; height:50px; border-radius:50%; background:var(--primary); color:#fff; border:none; font-size:20px; z-index:90; box-shadow:var(--shadow-md); cursor:pointer; align-items:center; justify-content:center; }
-        .toc-toggle-btn .badge { position:absolute; top:-4px; right:-4px; width:20px; height:20px; border-radius:50%; background:#ef4444; color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; display:none; }
-        @media (max-width:768px) {
-            .sidebar { position:fixed; top:0; left:0; height:100vh; width:280px; border-radius:0; transform:translateX(-100%); opacity:0; transition:transform 0.3s ease, opacity 0.3s ease; z-index:95; }
-            .sidebar.open { transform:translateX(0); opacity:1; } .sidebar-close-btn { display:flex; } .toc-toggle-btn { display:flex; }
-            .toolbar { gap:3px; } .btn { padding:6px 9px; font-size:11px; } .btn-sm { padding:4px 7px; font-size:10px; }
-            #editor h1 { font-size:26px; } #editor h2 { font-size:21px; } #editor h3 { font-size:18px; }
-            #editor h4 { font-size:16px; } #editor h5 { font-size:15px; } #editor h6 { font-size:13px; }
-            .btn-settings, .btn-history, .btn-stats { width:32px; height:32px; font-size:14px; padding:5px; }
+        .toc-item { display:flex; align-items:center; gap:4px; padding:6px 8px 6px 4px; border-radius:var(--radius-sm); cursor:pointer; font-size:13px; color:var(--text-secondary); transition: background 0.15s; border-left:3px solid transparent; }
+        .toc-item:hover { background:var(--surface-alt); }
+        .toc-item.active { background:var(--primary-light); color:var(--primary); border-left-color:var(--primary); }
+        .toc-arrow { width:18px; height:18px; display:flex; align-items:center; justify-content:center; font-size:12px; transition: transform 0.2s; flex-shrink:0; color:var(--text-muted); cursor:pointer; }
+        .toc-arrow.collapsed { transform: rotate(-90deg); }
+        .toc-arrow.empty { visibility:hidden; }
+        .toc-badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 6px; border-radius:3px; margin-right:6px; flex-shrink:0; }
+        .toc-badge.h1{background:#e0e7ff;color:#4338ca} .toc-badge.h2{background:#e0f2fe;color:#0369a1} .toc-badge.h3{background:#f3e8ff;color:#7c3aed}
+        .toc-badge.h4{background:#fce7f3;color:#9d174d} .toc-badge.h5{background:#ffedd5;color:#9a3412} .toc-badge.h6{background:#d1fae5;color:#065f46}
+        .toc-text { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .toc-children { overflow:hidden; transition:max-height 0.25s ease; }
+        .toc-children.collapsed { max-height:0 !important; }
+
+        .main-area{flex:1;display:flex;flex-direction:column;background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+        .toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface-alt)}
+        .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;background:#fff;color:var(--text)}
+        .btn:hover{background:#f3f4f6} .btn-sm{padding:5px 9px;font-size:12px} .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+        .toolbar-divider{width:1px;height:22px;background:var(--border);margin:0 6px}
+        .editor-wrapper{flex:1;overflow-y:auto;padding:20px 24px}
+        #editor{outline:none;max-width:800px;margin:0 auto;line-height:1.8;font-size:16px}
+
+        /* 标题分级缩进（保持不变） */
+        #editor h1 { font-size:32px; font-weight:700; margin:24px 0 12px; margin-left: 0; }
+        #editor h2 { font-size:24px; font-weight:600; margin:20px 0 10px; margin-left: 20px; }
+        #editor h3 { font-size:20px; font-weight:600; margin:16px 0 8px; margin-left: 40px; }
+        #editor h4 { font-size:18px; font-weight:600; margin:14px 0 6px; margin-left: 60px; }
+        #editor h5 { font-size:16px; font-weight:600; margin:12px 0 4px; margin-left: 80px; }
+        #editor h6 { font-size:14px; font-weight:600; margin:10px 0 2px; margin-left: 100px; }
+
+        /* 段落样式：仅保留首行缩进，不跟随标题左缩进 */
+        #editor p { font-size:16px; margin:8px 0; text-indent: 2em; line-height:1.8; margin-left: 0 !important; }
+
+        #editor:empty::before{content:'✍️ 开始写作吧...';color:#cbd5e1; text-indent:0; margin-left:0;}
+
+        #editor mark.yellow{background:#fef3c7} #editor mark.green{background:#d1fae5} #editor mark.pink{background:#fce7f3} #editor mark.blue{background:#dbeafe} #editor mark.orange{background:#ffedd5}
+        .status-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-top:1px solid var(--border);background:var(--surface-alt);font-size:12px;color:var(--text-muted); gap:10px; flex-wrap:wrap;}
+        .save-dot{width:8px;height:8px;border-radius:50%;background:#10b981} .save-dot.saving{background:#f59e0b;animation:pulse 1s infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+        .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+        .modal-overlay.visible{opacity:1;pointer-events:all}
+        .modal{background:var(--surface);border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,0.15);width:90%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+        .modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+        .modal-close{width:34px;height:34px;border:none;background:var(--surface-alt);border-radius:50%;cursor:pointer;font-size:18px}
+        .modal-body{flex:1;overflow-y:auto;padding:20px}
+        .modal-footer{padding:14px 20px;border-top:1px solid var(--border)}
+        .version-item{background:var(--surface-alt);padding:10px 12px;border-radius:var(--radius-sm);margin-bottom:8px}
+        .version-actions{display:flex;gap:8px;margin-top:6px;align-items:center}
+        .restore-confirm { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-top: 6px; display: none; }
+        .restore-confirm.show { display: block; }
+        .toc-toggle-btn{display:none;position:fixed;bottom:24px;right:24px;width:50px;height:50px;border-radius:50%;background:var(--primary);color:#fff;border:none;font-size:20px;z-index:90}
+        .reset-today-btn { background: none; border: none; color: var(--primary); font-size:12px; cursor:pointer; text-decoration: underline; margin-left: 4px; }
+        @media(max-width:768px){
+            .sidebar{position:fixed;top:0;left:0;height:100vh;width:280px;transform:translateX(-100%);transition:.3s;z-index:95}
+            .sidebar.open{transform:translateX(0)} .sidebar-close-btn{display:flex} .toc-toggle-btn{display:flex}
         }
+        .version-tag {position:fixed; bottom:8px; right:8px; font-size:10px; color:var(--text-muted); opacity:0.6;}
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <h2>📑 目录</h2>
-                <button class="sidebar-close-btn" id="sidebarCloseBtn">✕</button>
-            </div>
-            <div class="toc-container" id="tocContainer">
-                <div class="toc-empty">📝 暂无标题</div>
-            </div>
-        </aside>
-        <div class="main-area">
-            <div class="toolbar" id="toolbar">
-                <div class="toolbar-group">
-                    <button class="btn btn-sm btn-default" data-format="p">📄正文</button>
-                    <button class="btn btn-sm btn-default" data-format="h1">H1</button>
-                    <button class="btn btn-sm btn-default" data-format="h2">H2</button>
-                    <button class="btn btn-sm btn-default" data-format="h3">H3</button>
-                    <button class="btn btn-sm btn-default" data-format="h4">H4</button>
-                    <button class="btn btn-sm btn-default" data-format="h5">H5</button>
-                    <button class="btn btn-sm btn-default" data-format="h6">H6</button>
-                </div>
-                <span class="toolbar-divider"></span>
-                <div class="toolbar-group">
-                    <button class="btn btn-sm btn-highlight-yellow" data-highlight="yellow">🟡</button>
-                    <button class="btn btn-sm btn-highlight-green" data-highlight="green">🟢</button>
-                    <button class="btn btn-sm btn-highlight-pink" data-highlight="pink">🟣</button>
-                    <button class="btn btn-sm btn-highlight-blue" data-highlight="blue">🔵</button>
-                    <button class="btn btn-sm btn-highlight-orange" data-highlight="orange">🟠</button>
-                </div>
-                <span class="toolbar-divider"></span>
-                <button class="btn btn-sm btn-danger" id="clearFormatBtn">🧹清除</button>
-                <button class="btn btn-sm btn-default" id="selectAllBtn">📋全选</button>
-                <span class="toolbar-divider"></span>
-                <button class="btn btn-sm btn-default" id="saveVersionBtn" title="手动保存一个历史版本">💾 保存版本</button>
-                <button class="btn btn-settings" id="historyBtn" title="历史版本">📜</button>
-                <button class="btn btn-settings" id="statsBtn" title="每日字数统计">📊</button>
-                <span class="toolbar-divider"></span>
-                <div class="toolbar-group" id="shortcutButtons"></div>
-                <span class="toolbar-spacer"></span>
-                <button class="btn btn-settings" id="settingsBtn">⚙️</button>
-            </div>
-            <div class="editor-wrapper" id="editorWrapper">
-                <div id="editor" contenteditable="true" spellcheck="true"></div>
-            </div>
-            <div class="status-bar">
-                <div class="save-indicator"><span class="save-dot saved" id="saveDot"></span> <span id="saveText">就绪</span></div>
-                <div class="word-count" id="wordCount">字数: 0</div>
-                <div class="today-count" id="todayCount" style="cursor:pointer;" title="点击查看每日统计">今日新增: 0</div>
-            </div>
+<div class="app-container">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h2>📑 目录</h2><button class="sidebar-close-btn" id="sidebarCloseBtn">✕</button></div>
+        <div class="toc-container" id="tocContainer"><div class="toc-empty">📝 暂无标题</div></div>
+    </aside>
+    <div class="main-area">
+        <div class="toolbar">
+            <button class="btn btn-sm" data-format="p">📄正文</button>
+            <button class="btn btn-sm" data-format="h1">H1</button><button class="btn btn-sm" data-format="h2">H2</button>
+            <button class="btn btn-sm" data-format="h3">H3</button><button class="btn btn-sm" data-format="h4">H4</button>
+            <button class="btn btn-sm" data-format="h5">H5</button><button class="btn btn-sm" data-format="h6">H6</button>
+            <span class="toolbar-divider"></span>
+            <button class="btn btn-sm btn-highlight-yellow" data-highlight="yellow">🟡</button>
+            <button class="btn btn-sm btn-highlight-green" data-highlight="green">🟢</button>
+            <button class="btn btn-sm btn-highlight-pink" data-highlight="pink">🟣</button>
+            <button class="btn btn-sm btn-highlight-blue" data-highlight="blue">🔵</button>
+            <button class="btn btn-sm btn-highlight-orange" data-highlight="orange">🟠</button>
+            <span class="toolbar-divider"></span>
+            <button class="btn btn-sm btn-danger" id="clearFormatBtn">🧹清除</button>
+            <button class="btn btn-sm" id="selectAllBtn">📋全选</button>
+            <span class="toolbar-divider"></span>
+            <button class="btn btn-sm" id="saveVersionBtn">💾保存版本</button>
+            <button class="btn btn-sm" id="historyBtn">📜</button>
+            <button class="btn btn-sm" id="statsBtn">📊</button>
+            <span class="toolbar-divider"></span>
+            <div id="shortcutButtons" style="display:contents;"></div>
+            <span style="flex:1;"></span>
+            <button class="btn btn-sm" id="settingsBtn">⚙️</button>
+        </div>
+        <div class="editor-wrapper"><div id="editor" contenteditable="true" spellcheck="true"></div></div>
+        <div class="status-bar">
+            <div><span class="save-dot saved" id="saveDot"></span><span id="saveText">就绪</span></div>
+            <div id="wordCount">字数:0</div>
+            <div id="todayCount" style="cursor:pointer">今日新增:0</div>
+            <button class="reset-today-btn" id="resetTodayBtn" title="重置今日起始字数">↺ 重置</button>
         </div>
     </div>
-    <button class="toc-toggle-btn" id="tocToggleBtn">📑<span class="badge" id="tocBadge">0</span></button>
-    <!-- 快捷用语设置模态 -->
-    <div class="modal-overlay" id="modalOverlay">
-        <div class="modal">
-            <div class="modal-header"><h3>⚙️ 快捷用语设置</h3><button class="modal-close" id="modalClose">✕</button></div>
-            <div class="modal-body">
-                <p style="font-size:13px;color:var(--text-muted)">自定义快捷用语，设置后在工具栏中显示。</p>
-                <div class="shortcut-list" id="shortcutList"></div>
-                <div id="shortcutListEmpty" style="text-align:center;color:var(--text-muted);padding:20px;">暂无快捷用语</div>
-                <div class="form-row"><div class="form-group"><label for="shortcutName">名称</label><input type="text" id="shortcutName" placeholder="如：问候语" maxlength="20"></div></div>
-                <div class="form-group"><label for="shortcutText">内容</label><textarea id="shortcutText" placeholder="例如：您好！感谢您的来信。"></textarea></div>
-                <div style="display:flex;gap:8px;">
-                    <button class="btn btn-primary btn-sm" id="addShortcutBtn">➕ 添加</button>
-                    <button class="btn btn-default btn-sm" id="updateShortcutBtn" style="display:none;">✏️ 更新</button>
-                    <button class="btn btn-ghost btn-sm" id="cancelEditBtn" style="display:none;">取消编辑</button>
-                </div>
-                <input type="hidden" id="editingIndex" value="-1">
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-default" id="modalCancelBtn">取消</button>
-                <button class="btn btn-primary" id="modalSaveBtn">💾 保存设置</button>
-            </div>
-        </div>
+</div>
+<button class="toc-toggle-btn" id="tocToggleBtn">📑</button>
+
+<!-- 模态框：历史版本、统计、快捷用语 -->
+<div class="modal-overlay" id="historyOverlay">
+    <div class="modal"><div class="modal-header"><h3>📜 历史版本</h3><button class="modal-close" id="historyCloseBtn">✕</button></div>
+    <div class="modal-body" id="versionList"></div><div class="modal-footer"><button class="btn" id="historyCloseFooterBtn">关闭</button></div></div>
+</div>
+<div class="modal-overlay" id="statsOverlay">
+    <div class="modal"><div class="modal-header"><h3>📊 每日新增字数</h3><button class="modal-close" id="statsCloseBtn">✕</button></div>
+    <div class="modal-body" id="statsContent"></div><div class="modal-footer"><button class="btn" id="statsCloseFooterBtn">关闭</button></div></div>
+</div>
+<div class="modal-overlay" id="shortcutOverlay">
+    <div class="modal"><div class="modal-header"><h3>⚙️ 快捷用语设置</h3><button class="modal-close" id="shortcutCloseBtn">✕</button></div>
+    <div class="modal-body" id="shortcutBody">
+        <div id="shortcutList"></div>
+        <input id="shortcutName" placeholder="名称" style="width:100%;margin-top:10px;padding:8px">
+        <textarea id="shortcutText" placeholder="内容" style="width:100%;margin-top:5px;resize:vertical;padding:8px" rows="3"></textarea>
+        <div style="margin-top:8px"><button class="btn btn-sm btn-primary" id="addShortcutBtn">➕添加</button><button class="btn btn-sm" id="updateShortcutBtn" style="display:none">✏️更新</button><button class="btn btn-sm" id="cancelEditBtn" style="display:none">取消</button></div>
+        <input type="hidden" id="editingIndex" value="-1">
     </div>
-    <!-- 历史版本模态 -->
-    <div class="modal-overlay" id="historyOverlay">
-        <div class="modal">
-            <div class="modal-header"><h3>📜 历史版本</h3><button class="modal-close" id="historyCloseBtn">✕</button></div>
-            <div class="modal-body">
-                <p style="font-size:13px;color:var(--text-muted)">最多保存20个版本，每5分钟自动保存，也可手动保存。</p>
-                <div class="version-list" id="versionList"></div>
-                <div id="versionListEmpty" style="text-align:center;color:var(--text-muted);padding:20px;">暂无历史版本</div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-default" id="historyCloseFooterBtn">关闭</button>
-            </div>
-        </div>
-    </div>
-    <!-- 每日统计模态 -->
-    <div class="modal-overlay" id="statsOverlay">
-        <div class="modal">
-            <div class="modal-header"><h3>📊 每日新增字数</h3><button class="modal-close" id="statsCloseBtn">✕</button></div>
-            <div class="modal-body">
-                <div id="statsContent" style="font-size:14px;color:var(--text-secondary);"></div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-default" id="statsCloseFooterBtn">关闭</button>
-            </div>
-        </div>
-    </div>
-    <script>
-        (function() {
-            // polyfill
-            if (typeof CSS === 'undefined' || !CSS.escape) {
-                window.CSS = window.CSS || {};
-                CSS.escape = function(value) { return String(value).replace(/([:;{}()\[\]\/,!^$.*+?~\\])/g, '\\$1'); };
-            }
+    <div class="modal-footer"><button class="btn" id="shortcutCancelBtn">取消</button><button class="btn btn-primary" id="shortcutSaveBtn">💾保存设置</button></div></div>
+</div>
+<div class="version-tag">v3.5 · 仅首行缩进</div>
 
-            const editor = document.getElementById('editor');
-            const editorWrapper = document.getElementById('editorWrapper');
-            const tocContainer = document.getElementById('tocContainer');
-            const sidebar = document.getElementById('sidebar');
-            const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
-            const tocToggleBtn = document.getElementById('tocToggleBtn');
-            const tocBadge = document.getElementById('tocBadge');
-            const saveDot = document.getElementById('saveDot');
-            const saveText = document.getElementById('saveText');
-            const wordCountEl = document.getElementById('wordCount');
-            const todayCountEl = document.getElementById('todayCount');
-            const shortcutButtonsContainer = document.getElementById('shortcutButtons');
-            const modalOverlay = document.getElementById('modalOverlay');
-            const historyOverlay = document.getElementById('historyOverlay');
-            const statsOverlay = document.getElementById('statsOverlay');
-            const settingsBtn = document.getElementById('settingsBtn');
-            const historyBtn = document.getElementById('historyBtn');
-            const statsBtn = document.getElementById('statsBtn');
-            const saveVersionBtn = document.getElementById('saveVersionBtn');
-            const clearFormatBtn = document.getElementById('clearFormatBtn');
-            const selectAllBtn = document.getElementById('selectAllBtn');
+<script>
+(function() {
+    if (!CSS.escape) CSS.escape = v => String(v).replace(/([:;{}()\[\]\/,!^$.*+?~\\])/g, '\\$1');
 
-            let shortcuts = [];
-            let pendingShortcuts = [];
-            let saveTimeout = null;
-            let tocUpdateTimeout = null;
-            let headingObserver = null;
-            const HEADING_LEVELS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
-            const MAX_VERSIONS = 20;
-            const AUTO_VERSION_INTERVAL = 5 * 60 * 1000; // 5分钟
+    const editor = document.getElementById('editor');
+    const tocContainer = document.getElementById('tocContainer');
+    const saveDot = document.getElementById('saveDot');
+    const saveText = document.getElementById('saveText');
+    const wordCountEl = document.getElementById('wordCount');
+    const todayCountEl = document.getElementById('todayCount');
+    const shortcutButtons = document.getElementById('shortcutButtons');
+    const HEADINGS = 'h1,h2,h3,h4,h5,h6';
+    const levelMap = { h1:1, h2:2, h3:3, h4:4, h5:5, h6:6 };
 
-            // 每日字数统计
-            let dailyStats = {};       // { '2026-05-12': 350 }
-            let todayStartCount = 0;   // 今日开始时的总字数
-            let currentTotal = 0;
+    let shortcuts = [];
+    let versions = [];
+    let dailyStats = {};
+    let todayStart = 0;
+    let saveTimeout;
 
-            // 历史版本
-            let versions = [];
+    // ---------- 全局函数 (历史、快捷用语) ----------
+    window._viewVersion = function(index) {
+        const v = versions[index]; if(!v) return;
+        const timeStr = new Date(v.time).toLocaleString();
+        const content = v.content.replace(/</g, '&lt;');
+        const win = window.open('', '_blank', 'width=650,height=500');
+        win.document.write(`<html><head><title>版本内容 - ${timeStr}</title></head><body style="font-family:sans-serif;padding:20px;"><h2>版本时间：${timeStr}</h2><hr><pre style="white-space:pre-wrap;word-wrap:break-word;">${content}</pre></body></html>`);
+    };
+    window._restoreVersion = function(index) {
+        document.querySelectorAll('.restore-confirm').forEach(el => el.classList.remove('show'));
+        const confirmDiv = document.getElementById('restore-confirm-' + index);
+        if (confirmDiv) confirmDiv.classList.add('show');
+    };
+    window._executeRestore = function(index) {
+        const v = versions[index]; if(!v) return;
+        editor.innerHTML = v.content;
+        updateTOC(); updateCounts(); saveContent();
+        document.getElementById('historyOverlay').classList.remove('visible');
+    };
+    window._hideRestoreConfirm = function(index) {
+        const confirmDiv = document.getElementById('restore-confirm-' + index);
+        if (confirmDiv) confirmDiv.classList.remove('show');
+    };
+    window._deleteVersion = function(index) {
+        versions.splice(index, 1);
+        localStorage.setItem('versions', JSON.stringify(versions));
+        renderVersionList();
+    };
+    window._insertShortcut = function(text) {
+        editor.focus();
+        document.execCommand('insertText', false, text);
+        saveContent();
+    };
+    window._editShortcut = function(i) {
+        document.getElementById('shortcutName').value = shortcuts[i].name;
+        document.getElementById('shortcutText').value = shortcuts[i].text;
+        document.getElementById('editingIndex').value = i;
+        document.getElementById('addShortcutBtn').style.display = 'none';
+        document.getElementById('updateShortcutBtn').style.display = 'inline-block';
+        document.getElementById('cancelEditBtn').style.display = 'inline-block';
+    };
+    window._deleteShortcut = function(i) {
+        shortcuts.splice(i,1);
+        localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
+        openShortcutSettings(); renderShortcutButtons();
+    };
 
-            // ---------- 初始化 ----------
-            function init() {
-                loadContent();
-                loadShortcuts();
-                loadVersions();
-                loadDailyStats();
+    // ---------- 初始化 ----------
+    function init() {
+        loadContent();
+        loadShortcuts();
+        loadVersions();
+        loadDailyStats();
+        updateTOC();
+        updateCounts();
+        renderShortcutButtons();
+        new MutationObserver(() => {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
                 updateTOC();
-                updateWordCount();
-                renderShortcutButtons();
-                setupMutationObserver();
-                setupIntersectionObserver();
-                bindEvents();
-                startAutoVersion();
-            }
-
-            function loadContent() {
-                const saved = localStorage.getItem('editor-content');
-                if (saved) {
-                    editor.innerHTML = saved;
-                } else {
-                    editor.innerHTML = `<h1>欢迎使用六级标题编辑器</h1><p>这是一个<mark class="yellow">功能全面</mark>的文本编辑器。</p><h2>标题分级</h2><p>选中文字，点击工具栏的 H1~H6 按钮。</p><h3>三级标题示例</h3><p>这是第三级。</p><h4>四级标题示例</h4><p>第四级更细致。</p><h5>五级标题示例</h5><p>第五级也很清晰。</p><h6>六级标题示例</h6><p>第六级依然可用。</p><h2>文字高亮</h2><p>选中文字，点击彩色按钮添加<mark class="blue">高亮背景</mark>。</p><h2>快捷用语</h2><p>点击右上角⚙️，自定义常用语。</p>`;
-                    updateHeadingIDs();
-                    saveContentImmediate();
-                }
-            }
-
-            function loadShortcuts() {
-                try {
-                    const saved = localStorage.getItem('editor-shortcuts');
-                    shortcuts = saved ? JSON.parse(saved) : [
-                        { name: '问候语', text: '您好！感谢您的来信。' },
-                        { name: '感谢语', text: '非常感谢您的支持！' },
-                        { name: '结束语', text: '此致\n敬礼' }
-                    ];
-                    if (!Array.isArray(shortcuts)) shortcuts = [];
-                } catch (e) { shortcuts = []; }
-                pendingShortcuts = JSON.parse(JSON.stringify(shortcuts));
-            }
-
-            function loadVersions() {
-                try {
-                    const saved = localStorage.getItem('editor-versions');
-                    versions = saved ? JSON.parse(saved) : [];
-                } catch(e) { versions = []; }
-            }
-
-            function loadDailyStats() {
-                try {
-                    const saved = localStorage.getItem('editor-daily-stats');
-                    dailyStats = saved ? JSON.parse(saved) : {};
-                    const savedTodayStart = localStorage.getItem('editor-today-start');
-                    if (savedTodayStart) {
-                        todayStartCount = parseInt(savedTodayStart) || 0;
-                    }
-                } catch(e) { dailyStats = {}; }
-                // 检查日期是否变更
-                checkDateChange();
-            }
-
-            function checkDateChange() {
-                const today = getTodayStr();
-                const savedDate = localStorage.getItem('editor-last-date');
-                if (savedDate !== today) {
-                    // 新的一天，重置今日起始字数
-                    todayStartCount = getTotalChars();
-                    localStorage.setItem('editor-today-start', todayStartCount);
-                    localStorage.setItem('editor-last-date', today);
-                }
-            }
-
-            function getTodayStr() {
-                const d = new Date();
-                return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-            }
-
-            function getTotalChars() {
-                return (editor.textContent || '').replace(/\s+/g, '').length;
-            }
-
-            function updateWordCount() {
-                currentTotal = getTotalChars();
-                wordCountEl.textContent = '字数: ' + currentTotal;
-                // 更新今日新增
-                const added = Math.max(0, currentTotal - todayStartCount);
-                todayCountEl.textContent = '今日新增: ' + added;
-                // 将今日新增暂存到 dailyStats
-                const today = getTodayStr();
-                dailyStats[today] = added;
-                localStorage.setItem('editor-daily-stats', JSON.stringify(dailyStats));
-                localStorage.setItem('editor-today-start', todayStartCount);
-                localStorage.setItem('editor-last-date', today);
-            }
-
-            function saveContent(immediate = false) {
-                if (immediate) { _doSave(); return; }
-                if (saveTimeout) clearTimeout(saveTimeout);
-                updateSaveIndicator('saving', '保存中...');
-                saveTimeout = setTimeout(_doSave, 500); // 优化为500ms
-            }
-
-            function _doSave() {
-                try {
-                    updateHeadingIDs();
-                    localStorage.setItem('editor-content', editor.innerHTML);
-                    const timeStr = new Date().toLocaleTimeString();
-                    updateSaveIndicator('saved', '已保存 ' + timeStr);
-                    // 更新每日统计
-                    updateWordCount();
-                } catch (e) {
-                    updateSaveIndicator('saved', '保存失败');
-                }
-            }
-
-            function saveContentImmediate() {
-                try { updateHeadingIDs(); localStorage.setItem('editor-content', editor.innerHTML); } catch(e) {}
-            }
-
-            function updateSaveIndicator(status, text) {
-                saveDot.className = 'save-dot ' + status;
-                saveText.textContent = text;
-                if (status === 'saved') {
-                    setTimeout(() => { if (saveDot.classList.contains('saved')) saveText.textContent = '已保存'; }, 2000);
-                }
-            }
-
-            // ---------- 历史版本管理 ----------
-            function startAutoVersion() {
-                setInterval(() => {
-                    addVersion(false); // 自动版本
-                }, AUTO_VERSION_INTERVAL);
-            }
-
-            function addVersion(isManual = false) {
-                const content = editor.innerHTML;
-                if (!content.trim()) return;
-                // 如果与最新版本内容相同，不重复保存
-                if (versions.length > 0 && versions[0].content === content) return;
-                const version = {
-                    time: new Date().toISOString(),
-                    content: content,
-                    manual: isManual
-                };
-                versions.unshift(version);
-                if (versions.length > MAX_VERSIONS) versions.pop();
-                localStorage.setItem('editor-versions', JSON.stringify(versions));
-                if (isManual) {
-                    alert('版本已手动保存');
-                }
-            }
-
-            function openHistory() {
-                renderVersionList();
-                historyOverlay.classList.add('visible');
-            }
-
-            function closeHistory() {
-                historyOverlay.classList.remove('visible');
-            }
-
-            function renderVersionList() {
-                const list = document.getElementById('versionList');
-                const empty = document.getElementById('versionListEmpty');
-                list.innerHTML = '';
-                if (versions.length === 0) {
-                    empty.style.display = 'block';
-                    list.style.display = 'none';
-                } else {
-                    empty.style.display = 'none';
-                    list.style.display = 'flex';
-                    versions.forEach((v, index) => {
-                        const div = document.createElement('div');
-                        div.className = 'version-item';
-                        const time = new Date(v.time).toLocaleString();
-                        const preview = v.content.replace(/<[^>]+>/g, '').substring(0, 60) + '...';
-                        div.innerHTML = `
-                            <div class="version-time">${time} ${v.manual ? '(手动)' : '(自动)'}</div>
-                            <div class="version-preview">${escapeHTML(preview)}</div>
-                            <div class="version-actions">
-                                <button class="btn btn-xs btn-default restore-ver" data-index="${index}">↩️恢复</button>
-                                <button class="btn btn-xs btn-danger delete-ver" data-index="${index}">🗑</button>
-                            </div>`;
-                        list.appendChild(div);
-                    });
-                    // 绑定按钮事件
-                    list.querySelectorAll('.restore-ver').forEach(btn => {
-                        btn.addEventListener('click', (e) => {
-                            const idx = parseInt(btn.getAttribute('data-index'));
-                            if (confirm('恢复此版本将覆盖当前内容，确定吗？')) {
-                                restoreVersion(idx);
-                            }
-                        });
-                    });
-                    list.querySelectorAll('.delete-ver').forEach(btn => {
-                        btn.addEventListener('click', (e) => {
-                            const idx = parseInt(btn.getAttribute('data-index'));
-                            deleteVersion(idx);
-                        });
-                    });
-                }
-            }
-
-            function restoreVersion(index) {
-                if (index < 0 || index >= versions.length) return;
-                editor.innerHTML = versions[index].content;
-                updateHeadingIDs();
-                _doSave();
-                updateTOC();
-                refreshIntersectionObserver();
-                closeHistory();
-            }
-
-            function deleteVersion(index) {
-                if (index < 0 || index >= versions.length) return;
-                versions.splice(index, 1);
-                localStorage.setItem('editor-versions', JSON.stringify(versions));
-                renderVersionList();
-            }
-
-            // ---------- 每日统计显示 ----------
-            function openStats() {
-                const content = document.getElementById('statsContent');
-                const sorted = Object.entries(dailyStats).sort((a,b) => b[0].localeCompare(a[0])); // 倒序
-                if (sorted.length === 0) {
-                    content.innerHTML = '暂无记录';
-                } else {
-                    let html = '<table style="width:100%; border-collapse:collapse;">';
-                    html += '<tr><th style="text-align:left; padding:4px;">日期</th><th style="text-align:right; padding:4px;">新增字数</th></tr>';
-                    sorted.forEach(([date, count]) => {
-                        html += `<tr><td style="padding:4px;">${date}</td><td style="text-align:right; padding:4px;">${count}</td></tr>`;
-                    });
-                    html += '</table>';
-                    content.innerHTML = html;
-                }
-                statsOverlay.classList.add('visible');
-            }
-
-            function closeStats() {
-                statsOverlay.classList.remove('visible');
-            }
-
-            // ---------- 原有功能函数 ----------
-            function updateHeadingIDs() {
-                const headings = editor.querySelectorAll(HEADING_LEVELS.join(','));
-                headings.forEach((h, i) => h.id = 'heading-' + i);
-            }
-
-            function updateTOC() {
-                updateHeadingIDs();
-                const headings = editor.querySelectorAll(HEADING_LEVELS.join(','));
-                const data = Array.from(headings).map(h => ({
-                    id: h.id,
-                    text: h.textContent.trim() || '(空标题)',
-                    level: h.tagName.toLowerCase()
-                }));
-                tocContainer.innerHTML = '';
-                if (data.length === 0) {
-                    tocContainer.innerHTML = '<div class="toc-empty">📝 暂无标题</div>';
-                    tocBadge.style.display = 'none';
-                } else {
-                    data.forEach(item => {
-                        const btn = document.createElement('button');
-                        btn.className = `toc-item level-${item.level}`;
-                        btn.setAttribute('data-heading-id', item.id);
-                        btn.innerHTML = `<span class="toc-badge ${item.level}">${item.level.toUpperCase()}</span>${escapeHTML(item.text)}`;
-                        btn.addEventListener('click', () => scrollToHeading(item.id, btn));
-                        tocContainer.appendChild(btn);
-                    });
-                    tocBadge.style.display = 'flex';
-                    tocBadge.textContent = data.length;
-                }
-            }
-
-            function scrollToHeading(id, tocItem) {
-                const target = editor.querySelector('#' + CSS.escape(id));
-                if (!target) return;
-                tocContainer.querySelectorAll('.toc-item').forEach(i => i.classList.remove('active'));
-                if (tocItem) tocItem.classList.add('active');
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                target.style.backgroundColor = '#fef3c7';
-                setTimeout(() => { target.style.backgroundColor = ''; }, 800);
-            }
-
-            function escapeHTML(str) {
-                const div = document.createElement('div');
-                div.textContent = str;
-                return div.innerHTML;
-            }
-
-            function setupMutationObserver() {
-                const observer = new MutationObserver(() => {
-                    if (tocUpdateTimeout) clearTimeout(tocUpdateTimeout);
-                    tocUpdateTimeout = setTimeout(() => { updateTOC(); updateWordCount(); }, 300);
-                    saveContent();
-                });
-                observer.observe(editor, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['id', 'class', 'style'] });
-            }
-
-            function setupIntersectionObserver() {
-                if (headingObserver) headingObserver.disconnect();
-                headingObserver = new IntersectionObserver(entries => {
-                    entries.forEach(entry => {
-                        const headingId = entry.target.id;
-                        const tocItem = tocContainer.querySelector(`[data-heading-id="${CSS.escape(headingId)}"]`);
-                        if (tocItem && entry.isIntersecting && entry.intersectionRatio >= 0.4) {
-                            tocContainer.querySelectorAll('.toc-item').forEach(i => i.classList.remove('active'));
-                            tocItem.classList.add('active');
-                        }
-                    });
-                }, { root: editorWrapper, threshold: [0.4, 0.6], rootMargin: '-20px 0px -60px 0px' });
-                editor.querySelectorAll(HEADING_LEVELS.join(',')).forEach(h => headingObserver.observe(h));
-            }
-
-            function refreshIntersectionObserver() {
-                if (headingObserver) headingObserver.disconnect();
-                setupIntersectionObserver();
-            }
-
-            function renderShortcutButtons() {
-                shortcutButtonsContainer.innerHTML = '';
-                if (shortcuts.length === 0) return;
-                const divider = document.createElement('span');
-                divider.className = 'toolbar-divider';
-                shortcutButtonsContainer.appendChild(divider);
-                shortcuts.forEach(sc => {
-                    const btn = document.createElement('button');
-                    btn.className = 'btn btn-sm btn-default';
-                    btn.textContent = '💬 ' + sc.name;
-                    btn.title = sc.text;
-                    btn.addEventListener('click', () => insertShortcutText(sc.text));
-                    shortcutButtonsContainer.appendChild(btn);
-                });
-            }
-
-            function insertShortcutText(text) {
-                if (document.activeElement !== editor) {
-                    editor.focus();
-                    const sel = window.getSelection();
-                    if (sel.rangeCount === 0 || !editor.contains(sel.anchorNode)) {
-                        const range = document.createRange();
-                        range.selectNodeContents(editor);
-                        range.collapse(false);
-                        sel.removeAllRanges();
-                        sel.addRange(range);
-                    }
-                }
-                try {
-                    document.execCommand('insertText', false, text);
-                } catch (e) {
-                    const sel = window.getSelection();
-                    if (sel.rangeCount === 0) return;
-                    const range = sel.getRangeAt(0);
-                    range.deleteContents();
-                    const lines = text.split('\n');
-                    const frag = document.createDocumentFragment();
-                    lines.forEach((line, i) => {
-                        if (i > 0) frag.appendChild(document.createElement('br'));
-                        if (line) frag.appendChild(document.createTextNode(line));
-                    });
-                    range.insertNode(frag);
-                    range.collapse(false);
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-                }
-                editor.focus();
+                updateCounts();
                 saveContent();
+            }, 300);
+        }).observe(editor, { childList:true, subtree:true, characterData:true });
+        setInterval(autoVersion, 5*60*1000);
+        bindEvents();
+        document.addEventListener('visibilitychange', () => { if (document.hidden) saveContent(); });
+        window.addEventListener('blur', saveContent);
+    }
+
+    function loadContent() {
+        const saved = localStorage.getItem('editor-content');
+        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会自动缩进两个字符，标题的分级缩进也一目了然。</p><h2>二级标题</h2><p>正文只缩进首行，不再整体缩进。</p><h3>三级标题</h3><p>每段首行空两格，符合中文书写习惯。</p>`;
+    }
+    function saveContent() {
+        updateHeadingIDs();
+        localStorage.setItem('editor-content', editor.innerHTML);
+        const t = new Date().toLocaleTimeString();
+        saveDot.className = 'save-dot saved'; saveText.textContent = '已保存 '+t;
+        setTimeout(() => { if (saveDot.classList.contains('saved')) saveText.textContent = '已保存'; }, 2000);
+    }
+    function updateHeadingIDs() {
+        editor.querySelectorAll(HEADINGS).forEach((h,i) => h.id = 'h'+i);
+    }
+
+    // ---------- 折叠目录核心（保持手动折叠状态） ----------
+    function buildTocTree() {
+        updateHeadingIDs();
+        const headings = editor.querySelectorAll(HEADINGS);
+        const flat = [];
+        headings.forEach(h => {
+            flat.push({
+                id: h.id,
+                text: h.textContent.trim() || '(空)',
+                level: levelMap[h.tagName.toLowerCase()],
+                el: h
+            });
+        });
+        const root = { children: [], level: 0 };
+        const stack = [root];
+        flat.forEach(item => {
+            const node = { ...item, children: [] };
+            while (stack.length && stack[stack.length-1].level >= item.level) {
+                stack.pop();
             }
+            const parent = stack[stack.length-1] || root;
+            parent.children.push(node);
+            stack.push(node);
+        });
+        return root.children;
+    }
 
-            function openSettings() {
-                pendingShortcuts = JSON.parse(JSON.stringify(shortcuts));
-                renderPendingShortcutsList();
-                resetEditForm();
-                modalOverlay.classList.add('visible');
-                document.getElementById('shortcutName').focus();
-            }
-
-            function closeSettings(save = false) {
-                if (save) {
-                    shortcuts = JSON.parse(JSON.stringify(pendingShortcuts));
-                    localStorage.setItem('editor-shortcuts', JSON.stringify(shortcuts));
-                    renderShortcutButtons();
-                }
-                modalOverlay.classList.remove('visible');
-                resetEditForm();
-            }
-
-            function renderPendingShortcutsList() {
-                const list = document.getElementById('shortcutList');
-                const empty = document.getElementById('shortcutListEmpty');
-                list.innerHTML = '';
-                if (pendingShortcuts.length === 0) {
-                    empty.style.display = 'block'; list.style.display = 'none';
-                } else {
-                    empty.style.display = 'none'; list.style.display = 'flex';
-                    pendingShortcuts.forEach((sc, index) => {
-                        const div = document.createElement('div');
-                        div.className = 'shortcut-item';
-                        div.innerHTML = `
-                            <div class="shortcut-info"><div class="shortcut-name">${escapeHTML(sc.name)}</div><div class="shortcut-preview">${escapeHTML(sc.text.replace(/\n/g,' ↵ '))}</div></div>
-                            <div class="shortcut-actions">
-                                <button class="btn btn-xs btn-default edit-sc-btn" data-index="${index}">✏️</button>
-                                <button class="btn btn-xs btn-danger delete-sc-btn" data-index="${index}">🗑</button>
-                            </div>`;
-                        list.appendChild(div);
-                    });
-                    list.querySelectorAll('.edit-sc-btn').forEach(btn => {
-                        btn.addEventListener('click', (e) => editPendingShortcut(parseInt(btn.dataset.index)));
-                    });
-                    list.querySelectorAll('.delete-sc-btn').forEach(btn => {
-                        btn.addEventListener('click', (e) => deletePendingShortcut(parseInt(btn.dataset.index)));
-                    });
-                }
-            }
-
-            function editPendingShortcut(index) {
-                if (index < 0 || index >= pendingShortcuts.length) return;
-                const sc = pendingShortcuts[index];
-                document.getElementById('shortcutName').value = sc.name;
-                document.getElementById('shortcutText').value = sc.text;
-                document.getElementById('editingIndex').value = index;
-                document.getElementById('addShortcutBtn').style.display = 'none';
-                document.getElementById('updateShortcutBtn').style.display = 'inline-flex';
-                document.getElementById('cancelEditBtn').style.display = 'inline-flex';
-            }
-
-            function deletePendingShortcut(index) {
-                if (index < 0 || index >= pendingShortcuts.length) return;
-                pendingShortcuts.splice(index, 1);
-                renderPendingShortcutsList();
-                const editingIndex = parseInt(document.getElementById('editingIndex').value);
-                if (editingIndex === index) resetEditForm();
-                else if (editingIndex > index) document.getElementById('editingIndex').value = editingIndex - 1;
-            }
-
-            function resetEditForm() {
-                document.getElementById('shortcutName').value = '';
-                document.getElementById('shortcutText').value = '';
-                document.getElementById('editingIndex').value = '-1';
-                document.getElementById('addShortcutBtn').style.display = 'inline-flex';
-                document.getElementById('updateShortcutBtn').style.display = 'none';
-                document.getElementById('cancelEditBtn').style.display = 'none';
-            }
-
-            function addOrUpdateShortcut() {
-                const name = document.getElementById('shortcutName').value.trim();
-                const text = document.getElementById('shortcutText').value;
-                if (!name || !text.trim()) { alert('请填写名称和内容'); return; }
-                const editingIndex = parseInt(document.getElementById('editingIndex').value);
-                if (editingIndex >= 0 && editingIndex < pendingShortcuts.length) {
-                    pendingShortcuts[editingIndex] = { name, text };
-                } else {
-                    pendingShortcuts.push({ name, text });
-                }
-                renderPendingShortcutsList();
-                resetEditForm();
-                document.getElementById('shortcutName').focus();
-            }
-
-            function applyFormat(format) {
-                editor.focus();
-                document.querySelectorAll('[data-format]').forEach(b => b.classList.remove('btn-active'));
-                const activeBtn = document.querySelector(`[data-format="${format}"]`);
-                if (activeBtn && format !== 'p') activeBtn.classList.add('btn-active');
-                try {
-                    document.execCommand('formatBlock', false, '<' + format.toUpperCase() + '>');
-                } catch (e) {
-                    try { document.execCommand('formatBlock', false, format); } catch (e2) {}
-                }
-                setTimeout(() => { updateTOC(); refreshIntersectionObserver(); }, 150);
-            }
-
-            function applyHighlight(color) {
-                editor.focus();
-                const sel = window.getSelection();
-                if (sel.isCollapsed) { alert('请先选中文字'); return; }
-                const colorMap = {
-                    yellow: '#fef3c7', green: '#d1fae5', pink: '#fce7f3', blue: '#dbeafe', orange: '#ffedd5'
-                };
-                const bgColor = colorMap[color] || '#fef3c7';
-                try {
-                    document.execCommand('styleWithCSS', false, false);
-                    document.execCommand('hiliteColor', false, bgColor);
-                } catch (e) {
-                    document.execCommand('styleWithCSS', false, true);
-                    document.execCommand('backColor', false, bgColor);
-                }
-                setTimeout(() => {
-                    editor.querySelectorAll('mark').forEach(m => {
-                        if (m.style.backgroundColor === bgColor || m.style.backgroundColor === bgColor.replace(/#/,'')) {
-                            m.classList.add(color);
-                        }
-                    });
-                }, 50);
-                saveContent();
-            }
-
-            function clearHighlight() {
-                editor.focus();
-                if (window.getSelection().isCollapsed) { alert('请先选中文字'); return; }
-                try { document.execCommand('removeFormat', false, null); } catch(e) {}
-                saveContent();
-            }
-
-            function selectAllContent() {
-                editor.focus();
-                try { document.execCommand('selectAll', false, null); } catch(e) {
-                    const range = document.createRange(); range.selectNodeContents(editor);
-                    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-                }
-            }
-
-            function toggleSidebar() { sidebar.classList.toggle('open'); }
-            function closeSidebar() { sidebar.classList.remove('open'); }
-
-            function bindEvents() {
-                document.querySelectorAll('[data-format]').forEach(b => b.addEventListener('click', () => applyFormat(b.dataset.format)));
-                document.querySelectorAll('[data-highlight]').forEach(b => b.addEventListener('click', () => applyHighlight(b.dataset.highlight)));
-                clearFormatBtn.addEventListener('click', clearHighlight);
-                selectAllBtn.addEventListener('click', selectAllContent);
-                settingsBtn.addEventListener('click', openSettings);
-                historyBtn.addEventListener('click', openHistory);
-                statsBtn.addEventListener('click', openStats);
-                saveVersionBtn.addEventListener('click', () => addVersion(true));
-                document.getElementById('modalClose').addEventListener('click', () => closeSettings(false));
-                document.getElementById('modalCancelBtn').addEventListener('click', () => closeSettings(false));
-                document.getElementById('modalSaveBtn').addEventListener('click', () => closeSettings(true));
-                modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeSettings(false); });
-                document.getElementById('addShortcutBtn').addEventListener('click', addOrUpdateShortcut);
-                document.getElementById('updateShortcutBtn').addEventListener('click', addOrUpdateShortcut);
-                document.getElementById('cancelEditBtn').addEventListener('click', resetEditForm);
-                document.getElementById('historyCloseBtn').addEventListener('click', closeHistory);
-                document.getElementById('historyCloseFooterBtn').addEventListener('click', closeHistory);
-                historyOverlay.addEventListener('click', e => { if (e.target === historyOverlay) closeHistory(); });
-                document.getElementById('statsCloseBtn').addEventListener('click', closeStats);
-                document.getElementById('statsCloseFooterBtn').addEventListener('click', closeStats);
-                statsOverlay.addEventListener('click', e => { if (e.target === statsOverlay) closeStats(); });
-                sidebarCloseBtn.addEventListener('click', closeSidebar);
-                tocToggleBtn.addEventListener('click', toggleSidebar);
-                todayCountEl.addEventListener('click', openStats);
-                editor.addEventListener('input', () => { updateWordCount(); saveContent(); });
-                editor.addEventListener('paste', () => setTimeout(() => { updateTOC(); updateWordCount(); refreshIntersectionObserver(); saveContent(); }, 100));
-                editor.addEventListener('keydown', e => {
-                    if (e.ctrlKey && e.altKey && e.key >= '0' && e.key <= '6') {
-                        e.preventDefault();
-                        if (e.key === '0') applyFormat('p');
-                        else applyFormat('h' + e.key);
-                    }
-                    if (e.ctrlKey && e.key === 's') { e.preventDefault(); _doSave(); }
-                });
-                window.addEventListener('beforeunload', () => { updateHeadingIDs(); _doSave(); });
-                window.addEventListener('resize', () => setTimeout(refreshIntersectionObserver, 300));
-                document.addEventListener('keydown', e => {
-                    if (e.key === 'Escape') {
-                        if (modalOverlay.classList.contains('visible')) closeSettings(false);
-                        else if (historyOverlay.classList.contains('visible')) closeHistory();
-                        else if (statsOverlay.classList.contains('visible')) closeStats();
-                        else if (sidebar.classList.contains('open')) closeSidebar();
+    function renderTocTree(nodes, container, depth = 0) {
+        nodes.forEach(node => {
+            const hasChildren = node.children && node.children.length > 0;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'toc-node';
+            const item = document.createElement('div');
+            item.className = 'toc-item';
+            item.style.paddingLeft = (depth * 20 + 8) + 'px';
+            item.setAttribute('data-heading-id', node.id);
+            const arrow = document.createElement('span');
+            arrow.className = 'toc-arrow' + (hasChildren ? '' : ' empty');
+            arrow.innerHTML = hasChildren ? '▼' : '';
+            if (hasChildren) {
+                arrow.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const childContainer = wrapper.querySelector(':scope > .toc-children');
+                    if (childContainer) {
+                        const collapsed = childContainer.classList.toggle('collapsed');
+                        arrow.classList.toggle('collapsed', collapsed);
                     }
                 });
-                // 切后台/失焦立即保存
-                document.addEventListener('visibilitychange', () => { if (document.hidden) _doSave(); });
-                window.addEventListener('blur', () => _doSave());
             }
+            item.appendChild(arrow);
+            const badge = document.createElement('span');
+            badge.className = 'toc-badge h' + node.level;
+            badge.textContent = 'H' + node.level;
+            item.appendChild(badge);
+            const textSpan = document.createElement('span');
+            textSpan.className = 'toc-text';
+            textSpan.textContent = node.text;
+            item.appendChild(textSpan);
+            item.addEventListener('click', () => {
+                const target = document.querySelector('#' + CSS.escape(node.id));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    tocContainer.querySelectorAll('.toc-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                }
+            });
+            wrapper.appendChild(item);
+            if (hasChildren) {
+                const childContainer = document.createElement('div');
+                childContainer.className = 'toc-children';
+                renderTocTree(node.children, childContainer, depth + 1);
+                wrapper.appendChild(childContainer);
+            }
+            container.appendChild(wrapper);
+        });
+    }
 
-            init();
-            setTimeout(refreshIntersectionObserver, 500);
-        })();
-    </script>
+    function updateTOC() {
+        const collapsedIds = new Set();
+        tocContainer.querySelectorAll('.toc-children.collapsed').forEach(el => {
+            const parentNode = el.closest('.toc-node');
+            const headingItem = parentNode?.querySelector(':scope > .toc-item');
+            if (headingItem) {
+                const id = headingItem.getAttribute('data-heading-id');
+                if (id) collapsedIds.add(id);
+            }
+        });
+        tocContainer.innerHTML = '';
+        const tree = buildTocTree();
+        if (tree.length === 0) {
+            tocContainer.innerHTML = '<div class="toc-empty">📝 暂无标题</div>';
+            return;
+        }
+        renderTocTree(tree, tocContainer);
+        tocContainer.querySelectorAll('.toc-node').forEach(node => {
+            const headingItem = node.querySelector(':scope > .toc-item');
+            if (headingItem) {
+                const id = headingItem.getAttribute('data-heading-id');
+                if (id && collapsedIds.has(id)) {
+                    const childContainer = node.querySelector(':scope > .toc-children');
+                    const arrow = headingItem.querySelector('.toc-arrow');
+                    if (childContainer) {
+                        childContainer.classList.add('collapsed');
+                        if (arrow) arrow.classList.add('collapsed');
+                    }
+                }
+            }
+        });
+        setupIntersectionObserver();
+    }
+
+    function setupIntersectionObserver() {
+        if (window._headingObserver) window._headingObserver.disconnect();
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                const id = entry.target.id;
+                const item = tocContainer.querySelector(`[data-heading-id="${CSS.escape(id)}"]`);
+                if (item && entry.isIntersecting && entry.intersectionRatio >= 0.3) {
+                    tocContainer.querySelectorAll('.toc-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                }
+            });
+        }, { root: document.getElementById('editorWrapper'), threshold: [0.3, 0.6], rootMargin: '-20px 0px -60px 0px' });
+        editor.querySelectorAll(HEADINGS).forEach(h => observer.observe(h));
+        window._headingObserver = observer;
+    }
+
+    function updateCounts() {
+        const total = (editor.textContent||'').replace(/\s/g,'').length;
+        wordCountEl.textContent = '字数: '+total;
+
+        // 智能重置：内容被完全清空时，自动归零今日起始字数
+        if (total === 0 && todayStart > 0) {
+            todayStart = 0;
+            localStorage.setItem('today-start', todayStart);
+        }
+
+        const today = getToday();
+        const added = Math.max(0, total - todayStart);
+        dailyStats[today] = added;
+        localStorage.setItem('daily-stats', JSON.stringify(dailyStats));
+        localStorage.setItem('today-start', todayStart);
+        todayCountEl.textContent = '今日新增: '+added;
+    }
+    function getToday() {
+        const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    }
+
+    function loadDailyStats() {
+        try {
+            dailyStats = JSON.parse(localStorage.getItem('daily-stats')) || {};
+            const savedDate = localStorage.getItem('today-date');
+            const today = getToday();
+            if (savedDate !== today) {
+                todayStart = (editor.textContent||'').replace(/\s/g,'').length;
+                localStorage.setItem('today-start', todayStart);
+                localStorage.setItem('today-date', today);
+            } else {
+                todayStart = parseInt(localStorage.getItem('today-start')) || 0;
+            }
+        } catch(e) { todayStart = 0; }
+    }
+
+    function resetTodayStart() {
+        todayStart = (editor.textContent||'').replace(/\s/g,'').length;
+        localStorage.setItem('today-start', todayStart);
+        updateCounts();
+    }
+
+    function loadVersions() {
+        try { versions = JSON.parse(localStorage.getItem('versions')) || []; } catch(e) { versions = []; }
+    }
+    function autoVersion() { addVersion(false); }
+    function addVersion(manual) {
+        const html = editor.innerHTML;
+        if (!html.trim() || (versions.length && versions[0].content === html)) return;
+        versions.unshift({ time: Date.now(), content: html, manual });
+        if (versions.length > 20) versions.pop();
+        localStorage.setItem('versions', JSON.stringify(versions));
+        if (manual) alert('版本已手动保存');
+    }
+    function renderVersionList() {
+        const container = document.getElementById('versionList');
+        if (!versions.length) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-muted)">暂无版本</p>';
+            return;
+        }
+        container.innerHTML = versions.map((v, i) => `
+            <div class="version-item">
+                <div style="font-size:12px;color:var(--text-muted)">${new Date(v.time).toLocaleString()} ${v.manual?'(手动)':'(自动)'}</div>
+                <div style="font-size:13px;margin:4px 0">${v.content.replace(/<[^>]+>/g,'').slice(0,80)}...</div>
+                <div class="version-actions">
+                    <button class="btn btn-sm" onclick="window._viewVersion(${i})">🔍查看</button>
+                    <button class="btn btn-sm" onclick="window._restoreVersion(${i})">↩️恢复</button>
+                    <button class="btn btn-sm btn-danger" onclick="window._deleteVersion(${i})">🗑删除</button>
+                </div>
+                <div class="restore-confirm" id="restore-confirm-${i}">
+                    <span style="font-size:13px;">确定恢复此版本？</span>
+                    <button class="btn btn-sm btn-primary" onclick="window._executeRestore(${i})">✅ 确定恢复</button>
+                    <button class="btn btn-sm" onclick="window._hideRestoreConfirm(${i})">取消</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function loadShortcuts() {
+        try { shortcuts = JSON.parse(localStorage.getItem('shortcuts')) || defaultShortcuts(); } catch(e) { shortcuts = defaultShortcuts(); }
+    }
+    function defaultShortcuts() {
+        return [{name:'问候语',text:'您好！'},{name:'感谢语',text:'感谢！'},{name:'结束语',text:'此致\n敬礼'}];
+    }
+    function renderShortcutButtons() {
+        shortcutButtons.innerHTML = shortcuts.map(s =>
+            `<button class="btn btn-sm" onclick="window._insertShortcut('${s.text.replace(/'/g,"\\'")}')">💬 ${s.name}</button>`
+        ).join('');
+    }
+    function openShortcutSettings() {
+        const list = document.getElementById('shortcutList');
+        list.innerHTML = shortcuts.map((s,i) => `
+            <div style="display:flex;justify-content:space-between;padding:6px 0">
+                <span><b>${s.name}</b> : ${s.text}</span>
+                <span>
+                    <button class="btn btn-sm" onclick="window._editShortcut(${i})">✏️</button>
+                    <button class="btn btn-sm btn-danger" onclick="window._deleteShortcut(${i})">🗑</button>
+                </span>
+            </div>`).join('');
+        document.getElementById('shortcutOverlay').classList.add('visible');
+    }
+    function resetShortcutForm() {
+        document.getElementById('shortcutName').value = '';
+        document.getElementById('shortcutText').value = '';
+        document.getElementById('editingIndex').value = '-1';
+        document.getElementById('addShortcutBtn').style.display = 'inline-block';
+        document.getElementById('updateShortcutBtn').style.display = 'none';
+        document.getElementById('cancelEditBtn').style.display = 'none';
+    }
+
+    function bindEvents() {
+        document.querySelectorAll('[data-format]').forEach(b => b.onclick = () => {
+            const f = b.dataset.format;
+            document.execCommand('formatBlock', false, f==='p'?'p':'<'+f.toUpperCase()+'>');
+            updateTOC();
+        });
+        document.querySelectorAll('[data-highlight]').forEach(b => b.onclick = () => {
+            const map = {yellow:'#fef3c7',green:'#d1fae5',pink:'#fce7f3',blue:'#dbeafe',orange:'#ffedd5'};
+            document.execCommand('hiliteColor', false, map[b.dataset.highlight]);
+        });
+        document.getElementById('clearFormatBtn').onclick = () => document.execCommand('removeFormat');
+        document.getElementById('selectAllBtn').onclick = () => document.execCommand('selectAll');
+        document.getElementById('saveVersionBtn').onclick = () => addVersion(true);
+        document.getElementById('historyBtn').onclick = () => { renderVersionList(); document.getElementById('historyOverlay').classList.add('visible'); };
+        document.getElementById('statsBtn').onclick = () => {
+            const stats = JSON.parse(localStorage.getItem('daily-stats')) || {};
+            const html = '<table style="width:100%">'+Object.entries(stats).sort((a,b)=>b[0].localeCompare(a[0])).map(([d,c])=>`<tr><td>${d}</td><td style="text-align:right">${c}</td></tr>`).join('')+'</table>';
+            document.getElementById('statsContent').innerHTML = html || '暂无数据';
+            document.getElementById('statsOverlay').classList.add('visible');
+        };
+        document.getElementById('todayCount').onclick = () => document.getElementById('statsBtn').click();
+        document.getElementById('settingsBtn').onclick = openShortcutSettings;
+        document.getElementById('resetTodayBtn').addEventListener('click', () => {
+            if (confirm('确定要将今日起始字数重置为当前字数吗？')) {
+                resetTodayStart();
+            }
+        });
+
+        document.getElementById('historyCloseBtn').onclick = () => document.getElementById('historyOverlay').classList.remove('visible');
+        document.getElementById('historyCloseFooterBtn').onclick = () => document.getElementById('historyOverlay').classList.remove('visible');
+        document.getElementById('historyOverlay').onclick = e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('visible'); };
+        document.getElementById('statsCloseBtn').onclick = () => document.getElementById('statsOverlay').classList.remove('visible');
+        document.getElementById('statsCloseFooterBtn').onclick = () => document.getElementById('statsOverlay').classList.remove('visible');
+        document.getElementById('statsOverlay').onclick = e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('visible'); };
+        document.getElementById('shortcutCloseBtn').onclick = () => document.getElementById('shortcutOverlay').classList.remove('visible');
+        document.getElementById('shortcutCancelBtn').onclick = () => document.getElementById('shortcutOverlay').classList.remove('visible');
+        document.getElementById('shortcutSaveBtn').onclick = () => {
+            const name = document.getElementById('shortcutName').value.trim();
+            const text = document.getElementById('shortcutText').value;
+            const idx = parseInt(document.getElementById('editingIndex').value);
+            if (!name || !text) return alert('填写完整');
+            if (idx >= 0) shortcuts[idx] = {name,text};
+            else shortcuts.push({name,text});
+            localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
+            renderShortcutButtons();
+            document.getElementById('shortcutOverlay').classList.remove('visible');
+            resetShortcutForm();
+        };
+        document.getElementById('addShortcutBtn').onclick = () => {
+            const name = document.getElementById('shortcutName').value.trim();
+            const text = document.getElementById('shortcutText').value;
+            if (!name || !text) return alert('填写完整');
+            shortcuts.push({name,text});
+            localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
+            renderShortcutButtons(); openShortcutSettings(); resetShortcutForm();
+        };
+        document.getElementById('updateShortcutBtn').onclick = () => {
+            const idx = parseInt(document.getElementById('editingIndex').value);
+            const name = document.getElementById('shortcutName').value.trim();
+            const text = document.getElementById('shortcutText').value;
+            if (idx>=0 && name && text) {
+                shortcuts[idx] = {name,text};
+                localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
+                renderShortcutButtons(); openShortcutSettings(); resetShortcutForm();
+            }
+        };
+        document.getElementById('cancelEditBtn').onclick = resetShortcutForm;
+        document.getElementById('tocToggleBtn').onclick = () => document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('sidebarCloseBtn').onclick = () => document.getElementById('sidebar').classList.remove('open');
+        document.addEventListener('keydown', e => {
+            if (e.ctrlKey && e.key==='s') { e.preventDefault(); saveContent(); }
+        });
+    }
+
+    init();
+})();
+</script>
 </body>
 </html>
