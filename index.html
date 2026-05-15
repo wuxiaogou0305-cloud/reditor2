@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>智能文本编辑器 · 仅首行缩进</title>
+    <title>智能文本编辑器 · 周月统计</title>
     <style>
         :root { --bg: #f0f2f5; --surface: #fff; --surface-alt: #f8f9fa; --border: #e0e3e8; --text: #2c3e50; --text-secondary: #6b7280; --text-muted: #9ca3af; --primary: #4f6ef7; --primary-light: #eef1fe; --shadow: 0 1px 3px rgba(0,0,0,0.08); --radius: 10px; --radius-sm: 6px; }
         *{margin:0;padding:0;box-sizing:border-box}
@@ -35,7 +35,6 @@
         .editor-wrapper{flex:1;overflow-y:auto;padding:20px 24px}
         #editor{outline:none;max-width:800px;margin:0 auto;line-height:1.8;font-size:16px}
 
-        /* 标题：仅首行缩进，缩进量随级别递增 */
         #editor h1 { font-size:32px; font-weight:700; margin:24px 0 12px; text-indent: 0; }
         #editor h2 { font-size:24px; font-weight:600; margin:20px 0 10px; text-indent: 2em; }
         #editor h3 { font-size:20px; font-weight:600; margin:16px 0 8px; text-indent: 4em; }
@@ -43,7 +42,6 @@
         #editor h5 { font-size:16px; font-weight:600; margin:12px 0 4px; text-indent: 8em; }
         #editor h6 { font-size:14px; font-weight:600; margin:10px 0 2px; text-indent: 10em; }
 
-        /* 段落：仅首行缩进，具体缩进量由JS动态设置，默认2em */
         #editor p { font-size:16px; margin:8px 0; line-height:1.8; text-indent: 2em; }
 
         #editor:empty::before{content:'✍️ 开始写作吧...';color:#cbd5e1; text-indent:0;}
@@ -65,6 +63,10 @@
         .restore-confirm.show { display: block; }
         .toc-toggle-btn{display:none;position:fixed;bottom:24px;right:24px;width:50px;height:50px;border-radius:50%;background:var(--primary);color:#fff;border:none;font-size:20px;z-index:90}
         .reset-today-btn { background: none; border: none; color: var(--primary); font-size:12px; cursor:pointer; text-decoration: underline; margin-left: 4px; }
+        .stats-summary { background: var(--primary-light); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px; display: flex; justify-content: space-around; }
+        .stats-summary-item { text-align: center; }
+        .stats-summary-item .label { font-size: 12px; color: var(--text-secondary); }
+        .stats-summary-item .value { font-size: 18px; font-weight: 700; color: var(--primary); }
         @media(max-width:768px){
             .sidebar{position:fixed;top:0;left:0;height:100vh;width:280px;transform:translateX(-100%);transition:.3s;z-index:95}
             .sidebar.open{transform:translateX(0)} .sidebar-close-btn{display:flex} .toc-toggle-btn{display:flex}
@@ -113,15 +115,19 @@
 </div>
 <button class="toc-toggle-btn" id="tocToggleBtn">📑</button>
 
-<!-- 模态框：历史版本、统计、快捷用语 -->
+<!-- 历史版本 -->
 <div class="modal-overlay" id="historyOverlay">
     <div class="modal"><div class="modal-header"><h3>📜 历史版本</h3><button class="modal-close" id="historyCloseBtn">✕</button></div>
     <div class="modal-body" id="versionList"></div><div class="modal-footer"><button class="btn" id="historyCloseFooterBtn">关闭</button></div></div>
 </div>
+
+<!-- 每日统计 -->
 <div class="modal-overlay" id="statsOverlay">
-    <div class="modal"><div class="modal-header"><h3>📊 每日新增字数</h3><button class="modal-close" id="statsCloseBtn">✕</button></div>
+    <div class="modal"><div class="modal-header"><h3>📊 字数统计</h3><button class="modal-close" id="statsCloseBtn">✕</button></div>
     <div class="modal-body" id="statsContent"></div><div class="modal-footer"><button class="btn" id="statsCloseFooterBtn">关闭</button></div></div>
 </div>
+
+<!-- 快捷用语 -->
 <div class="modal-overlay" id="shortcutOverlay">
     <div class="modal"><div class="modal-header"><h3>⚙️ 快捷用语设置</h3><button class="modal-close" id="shortcutCloseBtn">✕</button></div>
     <div class="modal-body" id="shortcutBody">
@@ -133,7 +139,7 @@
     </div>
     <div class="modal-footer"><button class="btn" id="shortcutCancelBtn">取消</button><button class="btn btn-primary" id="shortcutSaveBtn">💾保存设置</button></div></div>
 </div>
-<div class="version-tag">v3.6 · 首行缩进跟随</div>
+<div class="version-tag">v3.8 · 周/月统计</div>
 
 <script>
 (function() {
@@ -148,8 +154,6 @@
     const shortcutButtons = document.getElementById('shortcutButtons');
     const HEADINGS = 'h1,h2,h3,h4,h5,h6';
     const levelMap = { h1:1, h2:2, h3:3, h4:4, h5:5, h6:6 };
-    // 标题缩进基础值（单位：em）
-    const titleIndentMap = { h1:0, h2:2, h3:4, h4:6, h5:8, h6:10 };
 
     let shortcuts = [];
     let versions = [];
@@ -157,7 +161,7 @@
     let todayStart = 0;
     let saveTimeout;
 
-    // ---------- 全局函数 (历史、快捷用语) ----------
+    // ---------- 全局函数 ----------
     window._viewVersion = function(index) {
         const v = versions[index]; if(!v) return;
         const timeStr = new Date(v.time).toLocaleString();
@@ -174,7 +178,7 @@
         const v = versions[index]; if(!v) return;
         editor.innerHTML = v.content;
         updateTOC(); updateCounts(); saveContent();
-        updateParagraphIndent(); // 恢复后立即调整缩进
+        updateParagraphIndent();
         document.getElementById('historyOverlay').classList.remove('visible');
     };
     window._hideRestoreConfirm = function(index) {
@@ -213,14 +217,14 @@
         loadDailyStats();
         updateTOC();
         updateCounts();
-        updateParagraphIndent(); // 初始调整段落缩进
+        updateParagraphIndent();
         renderShortcutButtons();
         new MutationObserver(() => {
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
                 updateTOC();
                 updateCounts();
-                updateParagraphIndent(); // 内容变化时重新计算缩进
+                updateParagraphIndent();
                 saveContent();
             }, 300);
         }).observe(editor, { childList:true, subtree:true, characterData:true });
@@ -232,7 +236,7 @@
 
     function loadContent() {
         const saved = localStorage.getItem('editor-content');
-        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会根据前面的标题自动增加缩进。</p><h2>二级标题</h2><p>二级标题下的段落首行缩进比二级标题多2字符。</p><h3>三级标题</h3><p>三级标题下的段落首行缩进更多。</p>`;
+        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会跟随上方标题自动缩进。</p><h2>二级标题</h2><p>这段正文在二级标题下，首行缩进4字符。</p><h3>三级标题</h3><p>这段正文在三级标题下，首行缩进6字符。</p><p>另一个段落也是如此。</p>`;
     }
     function saveContent() {
         updateHeadingIDs();
@@ -245,13 +249,11 @@
         editor.querySelectorAll(HEADINGS).forEach((h,i) => h.id = 'h'+i);
     }
 
-    // ---------- 段落首行缩进跟随标题 ----------
     function updateParagraphIndent() {
         const paragraphs = editor.querySelectorAll('p');
         paragraphs.forEach(p => {
             let prev = p.previousElementSibling;
             let heading = null;
-            // 查找前面最近的标题
             while (prev) {
                 if (HEADINGS.indexOf(prev.tagName.toLowerCase()) !== -1) {
                     heading = prev;
@@ -259,18 +261,16 @@
                 }
                 prev = prev.previousElementSibling;
             }
-            let indent = 2; // 默认 2em
+            let indent = 2;
             if (heading) {
                 const level = levelMap[heading.tagName.toLowerCase()];
-                // 段落缩进 = 标题缩进 + 2em
-                const titleIndent = (level - 1) * 2; // 与CSS保持一致
-                indent = titleIndent + 2;
+                indent = (level - 1) * 2 + 2;
             }
             p.style.textIndent = indent + 'em';
         });
     }
 
-    // ---------- 折叠目录核心（保持手动折叠状态） ----------
+    // ---------- 目录折叠 ----------
     function buildTocTree() {
         updateHeadingIDs();
         const headings = editor.querySelectorAll(HEADINGS);
@@ -397,15 +397,14 @@
         window._headingObserver = observer;
     }
 
+    // ---------- 字数统计 ----------
     function updateCounts() {
         const total = (editor.textContent||'').replace(/\s/g,'').length;
         wordCountEl.textContent = '字数: '+total;
-
         if (total === 0 && todayStart > 0) {
             todayStart = 0;
             localStorage.setItem('today-start', todayStart);
         }
-
         const today = getToday();
         const added = Math.max(0, total - todayStart);
         dailyStats[today] = added;
@@ -438,6 +437,82 @@
         updateCounts();
     }
 
+    // 获取本周一到周日的日期数组
+    function getWeekDates() {
+        const now = new Date();
+        const day = now.getDay(); // 0=周日, 1=周一, ... 6=周六
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+        const dates = [];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(monday);
+            d.setDate(monday.getDate() + i);
+            const dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            dates.push(dateStr);
+        }
+        return dates;
+    }
+
+    // 获取本月所有日期
+    function getMonthDates() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const dates = [];
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = year + '-' + String(month).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+            dates.push(dateStr);
+        }
+        return dates;
+    }
+
+    // 打开统计面板
+    function openStatsPanel() {
+        const stats = JSON.parse(localStorage.getItem('daily-stats')) || {};
+        // 计算本周新增
+        const weekDates = getWeekDates();
+        let weekTotal = 0;
+        weekDates.forEach(date => {
+            if (stats[date]) weekTotal += stats[date];
+        });
+        // 计算本月新增
+        const monthDates = getMonthDates();
+        let monthTotal = 0;
+        monthDates.forEach(date => {
+            if (stats[date]) monthTotal += stats[date];
+        });
+
+        // 构建汇总区域
+        let html = `<div class="stats-summary">
+            <div class="stats-summary-item">
+                <div class="label">本周新增</div>
+                <div class="value">${weekTotal}</div>
+            </div>
+            <div class="stats-summary-item">
+                <div class="label">本月新增</div>
+                <div class="value">${monthTotal}</div>
+            </div>
+        </div>`;
+
+        // 每日明细表格
+        html += '<table style="width:100%">';
+        html += '<tr><th style="text-align:left">日期</th><th style="text-align:right">新增字数</th></tr>';
+        const sorted = Object.entries(stats).sort((a,b) => b[0].localeCompare(a[0]));
+        if (sorted.length === 0) {
+            html += '<tr><td colspan="2">暂无记录</td></tr>';
+        } else {
+            sorted.forEach(([date, count]) => {
+                html += `<tr><td>${date}</td><td style="text-align:right">${count}</td></tr>`;
+            });
+        }
+        html += '</table>';
+
+        document.getElementById('statsContent').innerHTML = html;
+        document.getElementById('statsOverlay').classList.add('visible');
+    }
+
+    // ---------- 其他功能 ----------
     function loadVersions() {
         try { versions = JSON.parse(localStorage.getItem('versions')) || []; } catch(e) { versions = []; }
     }
@@ -511,7 +586,7 @@
             const f = b.dataset.format;
             document.execCommand('formatBlock', false, f==='p'?'p':'<'+f.toUpperCase()+'>');
             updateTOC();
-            updateParagraphIndent(); // 格式变化后更新缩进
+            updateParagraphIndent();
         });
         document.querySelectorAll('[data-highlight]').forEach(b => b.onclick = () => {
             const map = {yellow:'#fef3c7',green:'#d1fae5',pink:'#fce7f3',blue:'#dbeafe',orange:'#ffedd5'};
@@ -521,13 +596,8 @@
         document.getElementById('selectAllBtn').onclick = () => document.execCommand('selectAll');
         document.getElementById('saveVersionBtn').onclick = () => addVersion(true);
         document.getElementById('historyBtn').onclick = () => { renderVersionList(); document.getElementById('historyOverlay').classList.add('visible'); };
-        document.getElementById('statsBtn').onclick = () => {
-            const stats = JSON.parse(localStorage.getItem('daily-stats')) || {};
-            const html = '<table style="width:100%">'+Object.entries(stats).sort((a,b)=>b[0].localeCompare(a[0])).map(([d,c])=>`<tr><td>${d}</td><td style="text-align:right">${c}</td></tr>`).join('')+'</table>';
-            document.getElementById('statsContent').innerHTML = html || '暂无数据';
-            document.getElementById('statsOverlay').classList.add('visible');
-        };
-        document.getElementById('todayCount').onclick = () => document.getElementById('statsBtn').click();
+        document.getElementById('statsBtn').onclick = openStatsPanel;
+        document.getElementById('todayCount').onclick = openStatsPanel;
         document.getElementById('settingsBtn').onclick = openShortcutSettings;
         document.getElementById('resetTodayBtn').addEventListener('click', () => {
             if (confirm('确定要将今日起始字数重置为当前字数吗？')) {
