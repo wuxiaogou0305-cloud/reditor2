@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>智能文本编辑器 · 最终稳定版</title>
+    <title>智能文本编辑器 · 流畅光标版</title>
     <style>
         :root { --bg: #f0f2f5; --surface: #fff; --surface-alt: #f8f9fa; --border: #e0e3e8; --text: #2c3e50; --text-secondary: #6b7280; --text-muted: #9ca3af; --primary: #4f6ef7; --primary-light: #eef1fe; --shadow: 0 1px 3px rgba(0,0,0,0.08); --radius: 10px; --radius-sm: 6px; }
         *{margin:0;padding:0;box-sizing:border-box}
@@ -147,7 +147,7 @@
     </div>
     <div class="modal-footer"><button class="btn" id="shortcutCancelBtn">取消</button><button class="btn btn-primary" id="shortcutSaveBtn">💾保存设置</button></div></div>
 </div>
-<div class="version-tag">v4.1 · 换行不缩进</div>
+<div class="version-tag">v4.2 · 光标流畅</div>
 
 <script>
 (function() {
@@ -234,7 +234,7 @@
                 updateCounts();
                 updateAllParagraphIndents();
                 saveContent();
-            }, 500); // 延迟500ms，避免频繁写入
+            }, 500);
         }).observe(editor, { childList:true, subtree:true, characterData:true });
         setInterval(autoVersion, 5*60*1000);
         bindEvents();
@@ -244,14 +244,11 @@
 
     function loadContent() {
         const saved = localStorage.getItem('editor-content');
-        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会根据前面的标题自动缩进。按 <strong>Shift+Enter</strong> 可以在段落内换行（不缩进）。</p><h2>二级标题</h2><p>这段正文在二级标题下，首行缩进4字符。</p><h3>三级标题</h3><p>这段正文在三级标题下，首行缩进6字符。</p>`;
+        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>段落首行会根据前面的标题自动缩进。按 Enter 正常换段，缩进自动调整。</p><h2>二级标题</h2><p>这段正文在二级标题下，首行缩进4字符。</p><h3>三级标题</h3><p>这段正文在三级标题下，首行缩进6字符。</p>`;
     }
     function saveContent() {
         updateHeadingIDs();
-        // 清理脏数据：移除所有的 &nbsp;
-        const html = editor.innerHTML.replace(/&nbsp;/g, ' ');
-        editor.innerHTML = html;
-        localStorage.setItem('editor-content', html);
+        localStorage.setItem('editor-content', editor.innerHTML);
         const t = new Date().toLocaleTimeString();
         saveDot.className = 'save-dot saved'; saveText.textContent = '已保存 '+t;
         setTimeout(() => { if (saveDot.classList.contains('saved')) saveText.textContent = '已保存'; }, 2000);
@@ -275,8 +272,8 @@
         const paragraphs = editor.querySelectorAll('p');
         paragraphs.forEach(p => {
             const expectedLevel = getParagraphIndentLevel(p);
-            const currentLevel = parseInt(p.getAttribute('data-indent-level')) || -1;
-            if (currentLevel !== expectedLevel) {
+            const currentLevel = p.getAttribute('data-indent-level');
+            if (currentLevel === null || parseInt(currentLevel) !== expectedLevel) {
                 p.setAttribute('data-indent-level', expectedLevel);
             }
         });
@@ -449,7 +446,7 @@
         updateCounts();
     }
 
-    // ---------- 统计面板（本周/上周/本月/上月） ----------
+    // ---------- 统计面板 ----------
     function getWeekDates() {
         const now = new Date();
         const day = now.getDay();
@@ -658,25 +655,6 @@
         document.getElementById('cancelEditBtn').onclick = resetShortcutForm;
         document.getElementById('tocToggleBtn').onclick = () => document.getElementById('sidebar').classList.toggle('open');
         document.getElementById('sidebarCloseBtn').onclick = () => document.getElementById('sidebar').classList.remove('open');
-
-        // ---------- 核心：重写 Enter 键行为，防止意外缩进 ----------
-        editor.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                const sel = window.getSelection();
-                if (!sel.rangeCount) return;
-                const node = sel.anchorNode;
-                // 如果当前在段落或标题中，且不是标题元素，则插入 <br> 而不是创建新段落
-                let block = node.nodeType === 3 ? node.parentElement.closest('p,div,h1,h2,h3,h4,h5,h6') : node.closest('p,div,h1,h2,h3,h4,h5,h6');
-                if (block && HEADINGS.indexOf(block.tagName.toLowerCase()) === -1) {
-                    // 普通段落或 div：使用软换行
-                    e.preventDefault();
-                    document.execCommand('insertHTML', false, '<br>');
-                    // 确保插入后光标移动
-                    return;
-                }
-                // 如果是标题，允许默认行为（创建同级标题），但也会自动缩进，无需干预
-            }
-        });
 
         document.addEventListener('keydown', e => {
             if (e.ctrlKey && e.key==='s') { e.preventDefault(); saveContent(); }
