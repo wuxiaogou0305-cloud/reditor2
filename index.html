@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>智能文本编辑器 · 段落跟随缩进 · 周月统计</title>
+    <title>智能文本编辑器 · 段落跟随缩进 + 周月统计</title>
     <style>
         :root { --bg: #f0f2f5; --surface: #fff; --surface-alt: #f8f9fa; --border: #e0e3e8; --text: #2c3e50; --text-secondary: #6b7280; --text-muted: #9ca3af; --primary: #4f6ef7; --primary-light: #eef1fe; --shadow: 0 1px 3px rgba(0,0,0,0.08); --radius: 10px; --radius-sm: 6px; }
         *{margin:0;padding:0;box-sizing:border-box}
@@ -29,13 +29,13 @@
 
         .main-area{flex:1;display:flex;flex-direction:column;background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
         .toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface-alt)}
-        .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;background:#fff;color:var(--text)}
+        .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;background:#fff;color:var(--text);transition:all 0.1s}
         .btn:hover{background:#f3f4f6} .btn-sm{padding:5px 9px;font-size:12px} .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
         .toolbar-divider{width:1px;height:22px;background:var(--border);margin:0 6px}
         .editor-wrapper{flex:1;overflow-y:auto;padding:20px 24px}
         #editor{outline:none;max-width:800px;margin:0 auto;line-height:1.8;font-size:16px}
 
-        /* 标题缩进（保持不变） */
+        /* 标题缩进（与标题级别挂钩，保持视觉层次） */
         #editor h1 { font-size:32px; font-weight:700; margin:24px 0 12px; margin-left: 0; }
         #editor h2 { font-size:24px; font-weight:600; margin:20px 0 10px; margin-left: 20px; }
         #editor h3 { font-size:20px; font-weight:600; margin:16px 0 8px; margin-left: 40px; }
@@ -43,7 +43,7 @@
         #editor h5 { font-size:16px; font-weight:600; margin:12px 0 4px; margin-left: 80px; }
         #editor h6 { font-size:14px; font-weight:600; margin:10px 0 2px; margin-left: 100px; }
 
-        /* 普通段落首行缩进两个字符，左侧缩进由JS动态设置 */
+        /* 普通段落首行缩进两个字符，左侧缩进由JS动态设置（跟随最近标题） */
         #editor p { font-size:16px; margin:8px 0; text-indent: 2em; line-height:1.8; }
 
         #editor:empty::before{content:'✍️ 开始写作吧...';color:#cbd5e1; text-indent:0; margin-left:0;}
@@ -70,11 +70,11 @@
         }
         .version-tag {position:fixed; bottom:8px; right:8px; font-size:10px; color:var(--text-muted); opacity:0.6;}
         
-        /* 统计表格样式 */
+        /* 统计模块样式 */
         .stats-section { margin-bottom: 28px; }
         .stats-section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; padding-left: 0; border-left: 3px solid var(--primary); padding-left: 10px; background: transparent; }
         .stats-summary-cards { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
-        .stat-card { background: var(--surface-alt); border-radius: var(--radius-sm); padding: 12px 18px; flex: 1; min-width: 120px; text-align: center; box-shadow: var(--shadow); }
+        .stat-card { background: var(--surface-alt); border-radius: var(--radius-sm); padding: 12px 18px; flex: 1; min-width: 130px; text-align: center; box-shadow: var(--shadow); }
         .stat-card .stat-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
         .stat-card .stat-number { font-size: 28px; font-weight: 700; color: var(--primary); }
         .stats-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
@@ -98,26 +98,26 @@
             <button class="btn btn-sm" data-format="h3">H3</button><button class="btn btn-sm" data-format="h4">H4</button>
             <button class="btn btn-sm" data-format="h5">H5</button><button class="btn btn-sm" data-format="h6">H6</button>
             <span class="toolbar-divider"></span>
-            <button class="btn btn-sm btn-highlight-yellow" data-highlight="yellow">🟡</button>
-            <button class="btn btn-sm btn-highlight-green" data-highlight="green">🟢</button>
-            <button class="btn btn-sm btn-highlight-pink" data-highlight="pink">🟣</button>
-            <button class="btn btn-sm btn-highlight-blue" data-highlight="blue">🔵</button>
-            <button class="btn btn-sm btn-highlight-orange" data-highlight="orange">🟠</button>
+            <button class="btn btn-sm" data-highlight="yellow">🟡</button>
+            <button class="btn btn-sm" data-highlight="green">🟢</button>
+            <button class="btn btn-sm" data-highlight="pink">🟣</button>
+            <button class="btn btn-sm" data-highlight="blue">🔵</button>
+            <button class="btn btn-sm" data-highlight="orange">🟠</button>
             <span class="toolbar-divider"></span>
-            <button class="btn btn-sm btn-danger" id="clearFormatBtn">🧹清除</button>
+            <button class="btn btn-sm" id="clearFormatBtn">🧹清除</button>
             <button class="btn btn-sm" id="selectAllBtn">📋全选</button>
             <span class="toolbar-divider"></span>
             <button class="btn btn-sm" id="saveVersionBtn">💾保存版本</button>
             <button class="btn btn-sm" id="historyBtn">📜</button>
             <button class="btn btn-sm" id="statsBtn">📊</button>
             <span class="toolbar-divider"></span>
-            <div id="shortcutButtons" style="display:contents;"></div>
+            <div id="shortcutButtons" style="display:inline-flex;gap:6px;"></div>
             <span style="flex:1;"></span>
             <button class="btn btn-sm" id="settingsBtn">⚙️</button>
         </div>
         <div class="editor-wrapper"><div id="editor" contenteditable="true" spellcheck="true"></div></div>
         <div class="status-bar">
-            <div><span class="save-dot saved" id="saveDot"></span><span id="saveText">就绪</span></div>
+            <div><span class="save-dot" id="saveDot"></span><span id="saveText">就绪</span></div>
             <div id="wordCount">字数:0</div>
             <div id="todayCount" style="cursor:pointer">今日新增:0</div>
         </div>
@@ -125,7 +125,7 @@
 </div>
 <button class="toc-toggle-btn" id="tocToggleBtn">📑</button>
 
-<!-- 模态框：历史版本、统计、快捷用语 -->
+<!-- 模态框 -->
 <div class="modal-overlay" id="historyOverlay">
     <div class="modal"><div class="modal-header"><h3>📜 历史版本</h3><button class="modal-close" id="historyCloseBtn">✕</button></div>
     <div class="modal-body" id="versionList"></div><div class="modal-footer"><button class="btn" id="historyCloseFooterBtn">关闭</button></div></div>
@@ -149,8 +149,10 @@
 
 <script>
 (function() {
+    // 辅助函数
     if (!CSS.escape) CSS.escape = v => String(v).replace(/([:;{}()\[\]\/,!^$.*+?~\\])/g, '\\$1');
 
+    // DOM 元素
     const editor = document.getElementById('editor');
     const tocContainer = document.getElementById('tocContainer');
     const saveDot = document.getElementById('saveDot');
@@ -163,36 +165,36 @@
 
     let shortcuts = [];
     let versions = [];
-    let dailyStats = {};
-    let todayStart = 0;
+    let dailyStats = {};        // {"2026-05-16": 新增字数}
+    let todayStart = 0;         // 今日初始总字数
     let saveTimeout;
 
-    // ---------- 全局函数 (历史、快捷用语、统计辅助) ----------
-    window._viewVersion = function(index) {
-        const v = versions[index]; if(!v) return;
+    // ======================== 全局函数（供 HTML 内联调用）========================
+    window._viewVersion = function(idx) {
+        const v = versions[idx]; if(!v) return;
         const timeStr = new Date(v.time).toLocaleString();
         const content = v.content.replace(/</g, '&lt;');
         const win = window.open('', '_blank', 'width=650,height=500');
         win.document.write(`<html><head><title>版本内容 - ${timeStr}</title></head><body style="font-family:sans-serif;padding:20px;"><h2>版本时间：${timeStr}</h2><hr><pre style="white-space:pre-wrap;word-wrap:break-word;">${content}</pre></body></html>`);
     };
-    window._restoreVersion = function(index) {
+    window._restoreVersion = function(idx) {
         document.querySelectorAll('.restore-confirm').forEach(el => el.classList.remove('show'));
-        const confirmDiv = document.getElementById('restore-confirm-' + index);
+        const confirmDiv = document.getElementById('restore-confirm-' + idx);
         if (confirmDiv) confirmDiv.classList.add('show');
     };
-    window._executeRestore = function(index) {
-        const v = versions[index]; if(!v) return;
+    window._executeRestore = function(idx) {
+        const v = versions[idx]; if(!v) return;
         editor.innerHTML = v.content;
         updateTOC(); updateCounts(); saveContent();
         updateParagraphIndent();
         document.getElementById('historyOverlay').classList.remove('visible');
     };
-    window._hideRestoreConfirm = function(index) {
-        const confirmDiv = document.getElementById('restore-confirm-' + index);
+    window._hideRestoreConfirm = function(idx) {
+        const confirmDiv = document.getElementById('restore-confirm-' + idx);
         if (confirmDiv) confirmDiv.classList.remove('show');
     };
-    window._deleteVersion = function(index) {
-        versions.splice(index, 1);
+    window._deleteVersion = function(idx) {
+        versions.splice(idx, 1);
         localStorage.setItem('versions', JSON.stringify(versions));
         renderVersionList();
     };
@@ -212,216 +214,11 @@
     window._deleteShortcut = function(i) {
         shortcuts.splice(i,1);
         localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
-        openShortcutSettings(); renderShortcutButtons();
+        openShortcutSettings(); // 刷新列表
+        renderShortcutButtons();
     };
 
-    // ========== 周月统计核心函数 ==========
-    function getLocalDateKey(date) { // date为Date对象, 返回YYYY-MM-DD
-        let y = date.getFullYear();
-        let m = String(date.getMonth() + 1).padStart(2, '0');
-        let d = String(date.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    }
-
-    // 获取某周的周一日期 (ISO周一)
-    function getMondayDate(date) {
-        const d = new Date(date);
-        const day = d.getDay(); // 0周日
-        const diff = (day === 0 ? 6 : day - 1); // 到周一偏移
-        d.setDate(d.getDate() - diff);
-        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    }
-
-    // 格式化周区间 "M月d日 - M月d日"
-    function formatWeekRange(monday) {
-        const end = new Date(monday);
-        end.setDate(monday.getDate() + 6);
-        const startStr = `${monday.getMonth()+1}/${monday.getDate()}`;
-        const endStr = `${end.getMonth()+1}/${end.getDate()}`;
-        return `${startStr} - ${endStr}`;
-    }
-
-    // 获取当前周总字数 (基于dailyStats)
-    function getCurrentWeekTotal(stats) {
-        const today = new Date();
-        const monday = getMondayDate(today);
-        let total = 0;
-        for (let i = 0; i < 7; i++) {
-            const day = new Date(monday);
-            day.setDate(monday.getDate() + i);
-            const key = getLocalDateKey(day);
-            if (stats[key]) total += stats[key];
-        }
-        return total;
-    }
-
-    // 获取当前月总字数
-    function getCurrentMonthTotal(stats) {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth();
-        let total = 0;
-        for (const [dateStr, count] of Object.entries(stats)) {
-            const [y, m] = dateStr.split('-').map(Number);
-            if (y === year && m === month+1) {
-                total += count;
-            }
-        }
-        return total;
-    }
-
-    // 获取历史每周聚合 (返回数组: { weekKey: '2026-W20', weekRange, total, startDateISO })
-    function getWeeklyAggregate(stats) {
-        const weekMap = new Map(); // key: 'YYYY-MM-DD' 周一日期
-        for (const [dateStr, count] of Object.entries(stats)) {
-            const date = new Date(dateStr + 'T12:00:00');
-            if (isNaN(date)) continue;
-            const monday = getMondayDate(date);
-            const mondayKey = getLocalDateKey(monday);
-            if (!weekMap.has(mondayKey)) {
-                weekMap.set(mondayKey, { total: 0, mondayDate: monday });
-            }
-            weekMap.get(mondayKey).total += count;
-        }
-        const weeks = [];
-        for (const [mondayKey, data] of weekMap.entries()) {
-            weeks.push({
-                weekKey: mondayKey,
-                weekRange: formatWeekRange(data.mondayDate),
-                total: data.total,
-                startDate: data.mondayDate
-            });
-        }
-        weeks.sort((a,b) => b.startDate - a.startDate);
-        return weeks;
-    }
-
-    // 获取历史每月聚合
-    function getMonthlyAggregate(stats) {
-        const monthMap = new Map(); // key: 'YYYY-MM'
-        for (const [dateStr, count] of Object.entries(stats)) {
-            const ym = dateStr.substring(0, 7); // "2026-05"
-            if (!monthMap.has(ym)) monthMap.set(ym, 0);
-            monthMap.set(ym, monthMap.get(ym) + count);
-        }
-        const months = [];
-        for (const [ym, total] of monthMap.entries()) {
-            const [year, month] = ym.split('-');
-            const dateObj = new Date(parseInt(year), parseInt(month)-1, 1);
-            months.push({ yearMonth: ym, total, dateObj });
-        }
-        months.sort((a,b) => b.dateObj - a.dateObj);
-        return months;
-    }
-
-    // 渲染完整统计面板
-    function renderStatsModal() {
-        const statsRaw = JSON.parse(localStorage.getItem('daily-stats') || '{}');
-        const dailyStatsData = statsRaw;
-        
-        const currentWeekTotal = getCurrentWeekTotal(dailyStatsData);
-        const currentMonthTotal = getCurrentMonthTotal(dailyStatsData);
-        const weeklyHistory = getWeeklyAggregate(dailyStatsData);
-        const monthlyHistory = getMonthlyAggregate(dailyStatsData);
-        
-        // 准备日统计表格 (原有)
-        const dailyEntries = Object.entries(dailyStatsData).sort((a,b) => b[0].localeCompare(a[0]));
-        
-        let html = `
-            <div class="stats-section">
-                <div class="stats-section-title">📌 本周 & 本月 码字总量</div>
-                <div class="stats-summary-cards">
-                    <div class="stat-card"><div class="stat-label">📅 本周总字数</div><div class="stat-number">${currentWeekTotal}</div></div>
-                    <div class="stat-card"><div class="stat-label">📆 本月总字数</div><div class="stat-number">${currentMonthTotal}</div></div>
-                </div>
-            </div>
-        `;
-        
-        // 每周统计历史
-        html += `<div class="stats-section"><div class="stats-section-title">📆 每周汇总 (按周统计总字数)</div>`;
-        if (weeklyHistory.length === 0) {
-            html += `<div class="no-data">暂无周数据，继续写作吧 ✍️</div>`;
-        } else {
-            html += `<table class="stats-table"><thead><tr><th>周区间 (周一~周日)</th><th>本周总字数</th></tr></thead><tbody>`;
-            weeklyHistory.forEach(week => {
-                html += `<tr><td><span class="badge-week">📅</span> ${week.weekRange}</td><td><strong>${week.total}</strong> 字</td></tr>`;
-            });
-            html += `</tbody></table>`;
-        }
-        html += `</div>`;
-        
-        // 每月统计历史
-        html += `<div class="stats-section"><div class="stats-section-title">📆 每月汇总 (按月统计总字数)</div>`;
-        if (monthlyHistory.length === 0) {
-            html += `<div class="no-data">暂无月度数据，持续写作吧 🌙</div>`;
-        } else {
-            html += `<table class="stats-table"><thead><tr><th>月份</th><th>当月总字数</th></tr></thead><tbody>`;
-            monthlyHistory.forEach(month => {
-                const [year, mon] = month.yearMonth.split('-');
-                const display = `${year}年 ${parseInt(mon)}月`;
-                html += `<tr><td>${display}</td><td><strong>${month.total}</strong> 字</td></tr>`;
-            });
-            html += `</tbody></table>`;
-        }
-        html += `</div>`;
-        
-        // 每日新增明细 (原始)
-        html += `<div class="stats-section"><div class="stats-section-title">📋 每日新增明细</div>`;
-        if (dailyEntries.length === 0) {
-            html += `<div class="no-data">暂无每日记录</div>`;
-        } else {
-            html += `<table class="stats-table"><thead><tr><th>日期</th><th>当日新增字数</th></tr></thead><tbody>`;
-            for (const [date, count] of dailyEntries) {
-                html += `<tr><td>${date}</td><td>${count} 字</td></tr>`;
-            }
-            html += `</tbody></table>`;
-        }
-        html += `</div>`;
-        
-        document.getElementById('statsContent').innerHTML = html;
-    }
-
-    // ---------- 初始化 ----------
-    function init() {
-        loadContent();
-        loadShortcuts();
-        loadVersions();
-        loadDailyStats();
-        updateTOC();
-        updateCounts();
-        updateParagraphIndent();
-        renderShortcutButtons();
-        new MutationObserver(() => {
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
-                updateTOC();
-                updateCounts();
-                updateParagraphIndent();
-                saveContent();
-            }, 300);
-        }).observe(editor, { childList:true, subtree:true, characterData:true });
-        setInterval(autoVersion, 5*60*1000);
-        bindEvents();
-        document.addEventListener('visibilitychange', () => { if (document.hidden) saveContent(); });
-        window.addEventListener('blur', saveContent);
-    }
-
-    function loadContent() {
-        const saved = localStorage.getItem('editor-content');
-        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>这段正文会自动跟随上方的标题级别进行缩进。</p><h2>二级标题</h2><p>正文缩进比二级标题更多一些。</p><h3>三级标题</h3><p>再下一层正文缩进更明显。</p>`;
-    }
-    function saveContent() {
-        updateHeadingIDs();
-        localStorage.setItem('editor-content', editor.innerHTML);
-        const t = new Date().toLocaleTimeString();
-        saveDot.className = 'save-dot saved'; saveText.textContent = '已保存 '+t;
-        setTimeout(() => { if (saveDot.classList.contains('saved')) saveText.textContent = '已保存'; }, 2000);
-    }
-    function updateHeadingIDs() {
-        editor.querySelectorAll(HEADINGS).forEach((h,i) => h.id = 'h'+i);
-    }
-
-    // 段落跟随缩进
+    // ======================== 段落跟随缩进 ========================
     function updateParagraphIndent() {
         const paragraphs = editor.querySelectorAll('p');
         paragraphs.forEach(p => {
@@ -438,13 +235,13 @@
             if (heading) {
                 const level = levelMap[heading.tagName.toLowerCase()];
                 const base = (level - 1) * 20;
-                indent = base + 20;
+                indent = base + 20;  // 段落额外缩进20px，和标题区别
             }
             p.style.marginLeft = indent + 'px';
         });
     }
 
-    // 目录构建(保留折叠)
+    // ======================== 目录树 (带折叠) ========================
     function buildTocTree() {
         updateHeadingIDs();
         const headings = editor.querySelectorAll(HEADINGS);
@@ -461,9 +258,7 @@
         const stack = [root];
         flat.forEach(item => {
             const node = { ...item, children: [] };
-            while (stack.length && stack[stack.length-1].level >= item.level) {
-                stack.pop();
-            }
+            while (stack.length && stack[stack.length-1].level >= item.level) stack.pop();
             const parent = stack[stack.length-1] || root;
             parent.children.push(node);
             stack.push(node);
@@ -522,6 +317,7 @@
     }
 
     function updateTOC() {
+        // 保存折叠状态
         const collapsedIds = new Set();
         tocContainer.querySelectorAll('.toc-children.collapsed').forEach(el => {
             const parentNode = el.closest('.toc-node');
@@ -538,6 +334,7 @@
             return;
         }
         renderTocTree(tree, tocContainer);
+        // 恢复折叠
         tocContainer.querySelectorAll('.toc-node').forEach(node => {
             const headingItem = node.querySelector(':scope > .toc-item');
             if (headingItem) {
@@ -566,13 +363,22 @@
                     item.classList.add('active');
                 }
             });
-        }, { root: document.getElementById('editorWrapper'), threshold: [0.3, 0.6], rootMargin: '-20px 0px -60px 0px' });
+        }, { root: document.querySelector('.editor-wrapper'), threshold: [0.3, 0.6], rootMargin: '-20px 0px -60px 0px' });
         editor.querySelectorAll(HEADINGS).forEach(h => observer.observe(h));
         window._headingObserver = observer;
     }
 
+    function updateHeadingIDs() {
+        editor.querySelectorAll(HEADINGS).forEach((h,i) => h.id = 'h'+i);
+    }
+
+    // ======================== 字数统计 & 每日新增 ========================
+    function getPureTextLength() {
+        return (editor.textContent || '').replace(/\s/g, '').length;
+    }
+
     function updateCounts() {
-        const total = (editor.textContent||'').replace(/\s/g,'').length;
+        const total = getPureTextLength();
         wordCountEl.textContent = '字数: '+total;
         const today = getToday();
         const added = Math.max(0, total - todayStart);
@@ -581,25 +387,31 @@
         localStorage.setItem('today-start', todayStart);
         todayCountEl.textContent = '今日新增: '+added;
     }
+
     function getToday() {
-        const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        const d = new Date();
+        return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     }
 
     function loadDailyStats() {
         try {
-            dailyStats = JSON.parse(localStorage.getItem('daily-stats')) || {};
+            const storedStats = localStorage.getItem('daily-stats');
+            dailyStats = storedStats ? JSON.parse(storedStats) : {};
             const savedDate = localStorage.getItem('today-date');
             const today = getToday();
             if (savedDate !== today) {
-                todayStart = (editor.textContent||'').replace(/\s/g,'').length;
+                // 跨天：重置今日起始字数
+                todayStart = getPureTextLength();
                 localStorage.setItem('today-start', todayStart);
                 localStorage.setItem('today-date', today);
+                // 不修改dailyStats已存历史，仅更新今日起始
             } else {
-                todayStart = parseInt(localStorage.getItem('today-start')) || 0;
+                todayStart = parseInt(localStorage.getItem('today-start')) || getPureTextLength();
             }
-        } catch(e) { todayStart = 0; }
+        } catch(e) { todayStart = getPureTextLength(); dailyStats = {}; }
     }
 
+    // ======================== 版本管理 ========================
     function loadVersions() {
         try { versions = JSON.parse(localStorage.getItem('versions')) || []; } catch(e) { versions = []; }
     }
@@ -636,6 +448,7 @@
         `).join('');
     }
 
+    // ======================== 快捷用语 ========================
     function loadShortcuts() {
         try { shortcuts = JSON.parse(localStorage.getItem('shortcuts')) || defaultShortcuts(); } catch(e) { shortcuts = defaultShortcuts(); }
     }
@@ -644,7 +457,7 @@
     }
     function renderShortcutButtons() {
         shortcutButtons.innerHTML = shortcuts.map(s =>
-            `<button class="btn btn-sm" onclick="window._insertShortcut('${s.text.replace(/'/g,"\\'")}')">💬 ${s.name}</button>`
+            `<button class="btn btn-sm" onclick="window._insertShortcut('${s.text.replace(/'/g,"\\'").replace(/\n/g,'\\n')}')">💬 ${s.name}</button>`
         ).join('');
     }
     function openShortcutSettings() {
@@ -668,36 +481,170 @@
         document.getElementById('cancelEditBtn').style.display = 'none';
     }
 
+    // ======================== 新增：周/月统计模块 ========================
+    function getMondayDate(date) {
+        const d = new Date(date);
+        const day = d.getDay(); // 0周日
+        const diff = (day === 0 ? 6 : day - 1);
+        d.setDate(d.getDate() - diff);
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+    function formatWeekRange(monday) {
+        const end = new Date(monday);
+        end.setDate(monday.getDate() + 6);
+        return `${monday.getMonth()+1}/${monday.getDate()} - ${end.getMonth()+1}/${end.getDate()}`;
+    }
+    function getCurrentWeekTotal(stats) {
+        const today = new Date();
+        const monday = getMondayDate(today);
+        let total = 0;
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(monday);
+            day.setDate(monday.getDate() + i);
+            const key = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+            total += stats[key] || 0;
+        }
+        return total;
+    }
+    function getCurrentMonthTotal(stats) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        let total = 0;
+        for (const [dateStr, count] of Object.entries(stats)) {
+            const [y, m] = dateStr.split('-').map(Number);
+            if (y === year && m === month+1) total += count;
+        }
+        return total;
+    }
+    function getWeeklyAggregate(stats) {
+        const weekMap = new Map();
+        for (const [dateStr, count] of Object.entries(stats)) {
+            const date = new Date(dateStr + 'T12:00:00');
+            if (isNaN(date)) continue;
+            const monday = getMondayDate(date);
+            const key = `${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`;
+            if (!weekMap.has(key)) weekMap.set(key, { total: 0, mondayDate: monday });
+            weekMap.get(key).total += count;
+        }
+        const weeks = [];
+        for (const [_, data] of weekMap.entries()) {
+            weeks.push({
+                weekRange: formatWeekRange(data.mondayDate),
+                total: data.total,
+                startDate: data.mondayDate
+            });
+        }
+        weeks.sort((a,b) => b.startDate - a.startDate);
+        return weeks;
+    }
+    function getMonthlyAggregate(stats) {
+        const monthMap = new Map();
+        for (const [dateStr, count] of Object.entries(stats)) {
+            const ym = dateStr.substring(0,7);
+            monthMap.set(ym, (monthMap.get(ym) || 0) + count);
+        }
+        const months = [];
+        for (const [ym, total] of monthMap.entries()) {
+            const [year, month] = ym.split('-');
+            const dateObj = new Date(parseInt(year), parseInt(month)-1, 1);
+            months.push({ yearMonth: ym, total, dateObj, display: `${year}年 ${parseInt(month)}月` });
+        }
+        months.sort((a,b) => b.dateObj - a.dateObj);
+        return months;
+    }
+    function renderStatsModal() {
+        const stats = JSON.parse(localStorage.getItem('daily-stats') || '{}');
+        const currentWeek = getCurrentWeekTotal(stats);
+        const currentMonth = getCurrentMonthTotal(stats);
+        const weeklyHistory = getWeeklyAggregate(stats);
+        const monthlyHistory = getMonthlyAggregate(stats);
+        const dailyEntries = Object.entries(stats).sort((a,b) => b[0].localeCompare(a[0]));
+        
+        let html = `
+            <div class="stats-section">
+                <div class="stats-section-title">📌 本周 & 本月 码字总量</div>
+                <div class="stats-summary-cards">
+                    <div class="stat-card"><div class="stat-label">📅 本周总字数</div><div class="stat-number">${currentWeek}</div></div>
+                    <div class="stat-card"><div class="stat-label">📆 本月总字数</div><div class="stat-number">${currentMonth}</div></div>
+                </div>
+            </div>
+            <div class="stats-section"><div class="stats-section-title">📆 每周汇总</div>
+        `;
+        if (weeklyHistory.length) {
+            html += `<table class="stats-table"><thead><tr><th>周区间 (周一~周日)</th><th>本周总字数</th></tr></thead><tbody>`;
+            weeklyHistory.forEach(w => { html += `<tr><td>${w.weekRange}</td><td><strong>${w.total}</strong> 字</td></tr>`; });
+            html += `</tbody></table>`;
+        } else html += `<div class="no-data">暂无周数据</div>`;
+        html += `</div><div class="stats-section"><div class="stats-section-title">📆 每月汇总</div>`;
+        if (monthlyHistory.length) {
+            html += `<table class="stats-table"><thead><tr><th>月份</th><th>当月总字数</th></tr></thead><tbody>`;
+            monthlyHistory.forEach(m => { html += `<tr><td>${m.display}</td><td><strong>${m.total}</strong> 字</td></tr>`; });
+            html += `</tbody></table>`;
+        } else html += `<div class="no-data">暂无月度数据</div>`;
+        html += `</div><div class="stats-section"><div class="stats-section-title">📋 每日新增明细</div>`;
+        if (dailyEntries.length) {
+            html += `<table class="stats-table"><thead><tr><th>日期</th><th>当日新增字数</th></tr></thead><tbody>`;
+            dailyEntries.forEach(([date, cnt]) => { html += `<tr><td>${date}</td><td>${cnt} 字</td></tr>`; });
+            html += `</tbody></table>`;
+        } else html += `<div class="no-data">暂无每日记录</div>`;
+        html += `</div>`;
+        document.getElementById('statsContent').innerHTML = html;
+    }
+
+    // ======================== 核心保存与内容同步 ========================
+    function saveContent() {
+        updateHeadingIDs();
+        localStorage.setItem('editor-content', editor.innerHTML);
+        const t = new Date().toLocaleTimeString();
+        saveDot.classList.remove('saving'); saveDot.style.background = '#10b981';
+        saveText.textContent = '已保存 '+t;
+        setTimeout(() => { if (saveText.textContent !== '就绪') saveText.textContent = '就绪'; }, 1800);
+    }
+
+    function loadContent() {
+        const saved = localStorage.getItem('editor-content');
+        editor.innerHTML = saved || `<h1>欢迎使用</h1><p>这段正文会自动跟随上方的标题级别进行缩进。</p><h2>二级标题</h2><p>正文缩进比二级标题更多一些。</p><h3>三级标题</h3><p>再下一层正文缩进更明显。</p>`;
+    }
+
+    // ======================== 事件绑定 ========================
     function bindEvents() {
-        document.querySelectorAll('[data-format]').forEach(b => b.onclick = () => {
-            const f = b.dataset.format;
-            document.execCommand('formatBlock', false, f==='p'?'p':'<'+f.toUpperCase()+'>');
-            updateTOC();
-            updateParagraphIndent();
+        // 格式按钮
+        document.querySelectorAll('[data-format]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const f = btn.dataset.format;
+                document.execCommand('formatBlock', false, f === 'p' ? 'p' : '<' + f.toUpperCase() + '>');
+                updateTOC();
+                updateParagraphIndent();
+                updateCounts();
+            });
         });
-        document.querySelectorAll('[data-highlight]').forEach(b => b.onclick = () => {
-            const map = {yellow:'#fef3c7',green:'#d1fae5',pink:'#fce7f3',blue:'#dbeafe',orange:'#ffedd5'};
-            document.execCommand('hiliteColor', false, map[b.dataset.highlight]);
+        // 高亮按钮
+        const highlightMap = { yellow:'#fef3c7', green:'#d1fae5', pink:'#fce7f3', blue:'#dbeafe', orange:'#ffedd5' };
+        document.querySelectorAll('[data-highlight]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const color = highlightMap[btn.dataset.highlight];
+                if (color) document.execCommand('hiliteColor', false, color);
+            });
         });
-        document.getElementById('clearFormatBtn').onclick = () => document.execCommand('removeFormat');
-        document.getElementById('selectAllBtn').onclick = () => document.execCommand('selectAll');
-        document.getElementById('saveVersionBtn').onclick = () => addVersion(true);
-        document.getElementById('historyBtn').onclick = () => { renderVersionList(); document.getElementById('historyOverlay').classList.add('visible'); };
+        document.getElementById('clearFormatBtn').addEventListener('click', () => document.execCommand('removeFormat'));
+        document.getElementById('selectAllBtn').addEventListener('click', () => document.execCommand('selectAll'));
+        document.getElementById('saveVersionBtn').addEventListener('click', () => addVersion(true));
+        document.getElementById('historyBtn').addEventListener('click', () => { renderVersionList(); document.getElementById('historyOverlay').classList.add('visible'); });
+        document.getElementById('statsBtn').addEventListener('click', () => { renderStatsModal(); document.getElementById('statsOverlay').classList.add('visible'); });
+        document.getElementById('todayCount').addEventListener('click', () => document.getElementById('statsBtn').click());
+        document.getElementById('settingsBtn').addEventListener('click', openShortcutSettings);
         
-        // 重写统计按钮: 每次点击刷新周月统计并展示
-        document.getElementById('statsBtn').onclick = () => {
-            renderStatsModal();
-            document.getElementById('statsOverlay').classList.add('visible');
+        // 模态框关闭
+        const closeModals = () => {
+            document.getElementById('historyOverlay').classList.remove('visible');
+            document.getElementById('statsOverlay').classList.remove('visible');
+            document.getElementById('shortcutOverlay').classList.remove('visible');
         };
-        
-        document.getElementById('todayCount').onclick = () => document.getElementById('statsBtn').click();
-        document.getElementById('settingsBtn').onclick = openShortcutSettings;
         document.getElementById('historyCloseBtn').onclick = () => document.getElementById('historyOverlay').classList.remove('visible');
         document.getElementById('historyCloseFooterBtn').onclick = () => document.getElementById('historyOverlay').classList.remove('visible');
-        document.getElementById('historyOverlay').onclick = e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('visible'); };
         document.getElementById('statsCloseBtn').onclick = () => document.getElementById('statsOverlay').classList.remove('visible');
         document.getElementById('statsCloseFooterBtn').onclick = () => document.getElementById('statsOverlay').classList.remove('visible');
-        document.getElementById('statsOverlay').onclick = e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('visible'); };
         document.getElementById('shortcutCloseBtn').onclick = () => document.getElementById('shortcutOverlay').classList.remove('visible');
         document.getElementById('shortcutCancelBtn').onclick = () => document.getElementById('shortcutOverlay').classList.remove('visible');
         document.getElementById('shortcutSaveBtn').onclick = () => {
@@ -718,7 +665,9 @@
             if (!name || !text) return alert('填写完整');
             shortcuts.push({name,text});
             localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
-            renderShortcutButtons(); openShortcutSettings(); resetShortcutForm();
+            renderShortcutButtons();
+            openShortcutSettings();
+            resetShortcutForm();
         };
         document.getElementById('updateShortcutBtn').onclick = () => {
             const idx = parseInt(document.getElementById('editingIndex').value);
@@ -727,17 +676,45 @@
             if (idx>=0 && name && text) {
                 shortcuts[idx] = {name,text};
                 localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
-                renderShortcutButtons(); openShortcutSettings(); resetShortcutForm();
+                renderShortcutButtons();
+                openShortcutSettings();
+                resetShortcutForm();
             }
         };
         document.getElementById('cancelEditBtn').onclick = resetShortcutForm;
         document.getElementById('tocToggleBtn').onclick = () => document.getElementById('sidebar').classList.toggle('open');
         document.getElementById('sidebarCloseBtn').onclick = () => document.getElementById('sidebar').classList.remove('open');
-        document.addEventListener('keydown', e => {
-            if (e.ctrlKey && e.key==='s') { e.preventDefault(); saveContent(); }
+        document.addEventListener('keydown', e => { if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveContent(); } });
+        // 点击模态框背景关闭
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('visible'); });
         });
     }
 
+    // ======================== 初始化 ========================
+    function init() {
+        loadContent();
+        loadShortcuts();
+        loadVersions();
+        loadDailyStats();
+        updateTOC();
+        updateCounts();
+        updateParagraphIndent();
+        renderShortcutButtons();
+        // 监听内容变化
+        new MutationObserver(() => {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                updateTOC();
+                updateCounts();
+                updateParagraphIndent();
+                saveContent();
+            }, 300);
+        }).observe(editor, { childList: true, subtree: true, characterData: true });
+        setInterval(autoVersion, 5 * 60 * 1000);
+        bindEvents();
+        window.addEventListener('beforeunload', () => saveContent());
+    }
     init();
 })();
 </script>
